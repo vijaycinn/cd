@@ -5,7 +5,7 @@ module.exports = {
     packagerConfig: {
         asar: true,
         extraResource: ['./src/assets/SystemAudioDump'],
-        name: 'Cheating Daddy',
+        name: 'CdContainer',
         icon: 'src/assets/logo',
         // use `security find-identity -v -p codesigning` to find your identity
         // for macos signing
@@ -30,9 +30,9 @@ module.exports = {
         {
             name: '@electron-forge/maker-squirrel',
             config: {
-                name: 'cheating-daddy',
-                productName: 'Cheating Daddy',
-                shortcutName: 'Cheating Daddy',
+                name: 'cd-container',
+                productName: 'CdContainer',
+                shortcutName: 'CdContainer',
                 createDesktopShortcut: true,
                 createStartMenuShortcut: true,
             },
@@ -46,10 +46,10 @@ module.exports = {
             platforms: ['linux'],
             config: {
                 options: {
-                    name: 'Cheating Daddy',
-                    productName: 'Cheating Daddy',
-                    genericName: 'AI Assistant',
-                    description: 'AI assistant for interviews and learning',
+                    name: 'CdContainer',
+                    productName: 'CdContainer',
+                    genericName: 'CD Assistant',
+                    description: 'CD assistant',
                     categories: ['Development', 'Education'],
                     icon: 'src/assets/logo.png'
                 }

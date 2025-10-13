@@ -122,6 +122,40 @@ export class MainView extends LitElement {
             line-height: 1.5;
         }
 
+        .provider-select {
+            margin-bottom: 20px;
+        }
+
+        .provider-dropdown {
+            background: var(--input-background);
+            color: var(--text-color);
+            border: 1px solid var(--button-border);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            width: 100%;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 16px;
+            padding-right: 32px;
+        }
+
+        .provider-dropdown:focus {
+            outline: none;
+            border-color: var(--focus-border-color);
+            box-shadow: 0 0 0 2px var(--focus-box-shadow);
+        }
+
+        .provider-dropdown:hover {
+            border-color: rgba(255, 255, 255, 0.25);
+            background-color: rgba(0, 0, 0, 0.35);
+        }
+
         .link {
             color: var(--link-color);
             text-decoration: underline;
@@ -150,6 +184,7 @@ export class MainView extends LitElement {
         onLayoutModeChange: { type: Function },
         showApiKeyError: { type: Boolean },
         llmService: { type: String },
+        azureConfigComplete: { type: Boolean }
     };
 
     constructor() {
@@ -159,8 +194,11 @@ export class MainView extends LitElement {
         this.isInitializing = false;
         this.onLayoutModeChange = () => {};
         this.showApiKeyError = false;
-        this.llmService = localStorage.getItem('llmService') || 'gemini';
         this.boundKeydownHandler = this.handleKeydown.bind(this);
+        this.azureConfigComplete = false;
+
+        // Initialize settings from main process
+        this.initializeSettings();
     }
 
     connectedCallback() {
@@ -196,17 +234,57 @@ export class MainView extends LitElement {
     }
 
     handleInput(e) {
-        localStorage.setItem('apiKey', e.target.value);
+        const key = this.llmService === 'azure' ? 'azureApiKey' : 'geminiApiKey';
+        window.electron.ipcRenderer.invoke('set-setting', {
+            key,
+            value: e.target.value
+        });
         // Clear error state when user starts typing
         if (this.showApiKeyError) {
             this.showApiKeyError = false;
         }
     }
 
+    async initializeSettings() {
+        // Get initial settings from main process
+        this.llmService = await window.electron.ipcRenderer.invoke('get-setting', 'llmService') || 'gemini';
+        await this.validateAzureConfig();
+        this.requestUpdate();
+    }
+
+    handleProviderChange(e) {
+        const newProvider = e.target.value;
+        this.llmService = newProvider;
+        window.electron.ipcRenderer.invoke('set-setting', { 
+            key: 'llmService',
+            value: newProvider 
+        });
+        
+        if (newProvider === 'azure') {
+            this.validateAzureConfig();
+        }
+        this.requestUpdate();
+    }
+
+    async validateAzureConfig() {
+        const azureApiKey = await window.electron.ipcRenderer.invoke('get-setting', 'azureApiKey');
+        const azureEndpoint = await window.electron.ipcRenderer.invoke('get-setting', 'azureEndpoint');
+        const azureDeployment = await window.electron.ipcRenderer.invoke('get-setting', 'azureDeployment');
+        
+        this.azureConfigComplete = !!(azureApiKey && azureEndpoint && azureDeployment);
+        return this.azureConfigComplete;
+    }
+
     handleStartClick() {
         if (this.isInitializing) {
             return;
         }
+
+        if (this.llmService === 'azure' && !this.validateAzureConfig()) {
+            this.triggerApiKeyError();
+            return;
+        }
+
         this.onStart();
     }
 
@@ -319,6 +397,16 @@ export class MainView extends LitElement {
         const showInputField = this.llmService !== 'azure';
 
         return html`
+            <div class="input-group provider-select">
+                <select 
+                    class="provider-dropdown"
+                    .value=${this.llmService}
+                    @change=${this.handleProviderChange}
+                >
+                    <option value="gemini">Gemini Live</option>
+                    <option value="azure">Azure OpenAI</option>
+                </select>
+            </div>
             <div class="welcome">Welcome</div>
 
             ${showInputField ? html`

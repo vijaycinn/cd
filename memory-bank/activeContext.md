@@ -16,6 +16,7 @@
 ### Current Active Sub-task
 **5.0 Integration and Testing - Finalized WebRTC Feature**
 - [ ] 5.1 Update UI provider selection to support WebRTC Azure mode
+- [ ] 5.2 Align Azure realtime VAD pipeline with Gemini behaviour (active)
 
 ## Recent Critical Decisions
 
@@ -52,6 +53,9 @@
 3. **Token Exchange**: Now properly logged with prompt/completion token counts
 4. **Error Handling**: Enhanced error logging with detailed error information
 
+### In Progress
+- Azure realtime VAD parity work (see `memory-bank/azure-realtime-vad-plan.md`)
+
 ## Current Implementation State
 
 ### Completed Components
@@ -77,10 +81,11 @@
 3. **Prepare user testing guide** - Instructions for testing
 
 ### Phase 2: Testing and Verification
-1. **End-to-end testing** - Verify complete flow works
-2. **Response display testing** - Ensure responses appear in UI
-3. **Terminal logging verification** - Confirm all logs are visible
-4. **Provider switching testing** - Verify seamless switching
+1. **Azure VAD regression testing** - Pending once implementation completes
+2. **End-to-end testing** - Verify complete flow works
+3. **Response display testing** - Ensure responses appear in UI
+4. **Terminal logging verification** - Confirm all logs are visible
+5. **Provider switching testing** - Verify seamless switching
 
 ## Blockers and Open Questions
 
@@ -97,6 +102,7 @@
 - **Enhanced AzureOpenAI.js**: Added detailed logging for token usage and response content
 - **Enhanced gemini.js**: Added comprehensive logging for IPC communication and response handling
 - **Fixed Response Flow**: Ensured responses properly propagate from Azure service to UI
+- **Azure realtime VAD guardrails**: Implemented silence gating, pending-commit tracking, and metrics logging inside `src/utils/azureRealtimeWebSocket.js`
 
 ### Memory Bank Files Updated
 - `memory-bank/activeContext.md` - Current status and progress

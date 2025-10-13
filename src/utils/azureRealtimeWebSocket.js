@@ -71,10 +71,24 @@ class AzureRealtimeWebSocketService extends LLMService {
         this.commitTimeoutMs = 500; // Commit delay for silence detection
         this.isCommitting = false; // Prevent concurrent commits
         this.responseInProgress = false; // Track active responses
-        this.pendingResponse = false; // Awaiting transcript confirmation
         this.commitTimer = null; // Timer for delayed commits
-        this.lastTranscript = '';
-        this.lastTranscriptId = null;
+        this.speechActive = false; // Server VAD speech flag
+        this.commitGracePeriodMs = 80; // server VAD tail window before committing
+        this.hasNewAudioSinceLastCommit = false; // Track if audio arrived post-commit
+        this.pauseForEmptyCommit = false; // Block commits after server empty warnings
+        this.pendingCommitRequest = null; // Defer commits while response.active
+        this.pendingAudioBytes = 0; // Bytes accrued since last commit
+        this.silenceRmsThreshold = parseFloat(process.env.AZURE_REALTIME_SILENCE_RMS || '0.008');
+        this.disableSilenceGate = process.env.AZURE_REALTIME_DISABLE_SILENCE_GATE === '1';
+        this.silenceSkipLogThrottleMs = 4000; // Reduce log spam when skipping silence
+        this.lastSilenceLogTs = 0;
+        this.metrics = {
+            audioChunksAccepted: 0,
+            audioChunksSkipped: 0,
+            commitsAttempted: 0,
+            responsesRequested: 0,
+            emptyCommitWarnings: 0
+        };
 
         // Event callbacks
         this.callbacks = {
@@ -124,6 +138,8 @@ class AzureRealtimeWebSocketService extends LLMService {
 
                 this.socket.on('error', (error) => {
                     console.error('[AzureWebSocket] WebSocket error:', error);
+                    this.responseInProgress = false;
+                    this.isCommitting = false;
                     if (this.callbacks.onError) {
                         this.callbacks.onError(error);
                     }
@@ -136,6 +152,11 @@ class AzureRealtimeWebSocketService extends LLMService {
                     console.log(`[AzureWebSocket] WebSocket closed: code=${code}, reason=${reason.toString()}`);
                     this.isConnected = false;
                     this.isInitialized = false;
+                    this.clearCommitTimer();
+                    this.audioBuffer = [];
+                    this.speechActive = false;
+                    this.isCommitting = false;
+                    this.responseInProgress = false;
                     if (this.callbacks.onStatus) {
                         this.callbacks.onStatus('Disconnected');
                     }
@@ -247,6 +268,48 @@ class AzureRealtimeWebSocketService extends LLMService {
         }
     }
 
+    calculateRms(buffer) {
+        if (!buffer || buffer.length < 2) {
+            return 0;
+        }
+
+        let sumSquares = 0;
+        const sampleCount = buffer.length / 2;
+        for (let offset = 0; offset < buffer.length; offset += 2) {
+            const sample = buffer.readInt16LE(offset) / 32768;
+            sumSquares += sample * sample;
+        }
+        return Math.sqrt(sumSquares / Math.max(sampleCount, 1));
+    }
+
+    isAudioSilent(buffer) {
+        if (this.disableSilenceGate) {
+            return false;
+        }
+
+        const rms = this.calculateRms(buffer);
+        const isSilent = rms < this.silenceRmsThreshold;
+        if (isSilent) {
+            const now = Date.now();
+            if (now - this.lastSilenceLogTs >= this.silenceSkipLogThrottleMs) {
+                this.lastSilenceLogTs = now;
+                console.log('[AzureWebSocket] Dropping near-silent audio chunk (rms=%s)', rms.toFixed(5));
+            }
+            this.metrics.audioChunksSkipped += 1;
+        }
+        return isSilent;
+    }
+
+    logCommitMetrics(context) {
+        this.debugLog('[AzureWebSocket] Metrics update (%s): %o', context, {
+            acceptedChunks: this.metrics.audioChunksAccepted,
+            skippedChunks: this.metrics.audioChunksSkipped,
+            commitsAttempted: this.metrics.commitsAttempted,
+            responsesRequested: this.metrics.responsesRequested,
+            emptyCommitWarnings: this.metrics.emptyCommitWarnings
+        });
+    }
+
     publishTextUpdate(force = false) {
         if (!this.textBuffer) {
             return;
@@ -345,13 +408,61 @@ class AzureRealtimeWebSocketService extends LLMService {
 
             case 'input_audio_buffer.speech_started':
                 process.stdout.write('.');
+                this.speechActive = true;
+                this.clearCommitTimer();
+                this.debugLog('[AzureWebSocket] Speech started (server VAD)');
+                this.pauseForEmptyCommit = false;
+                this.pendingCommitRequest = null;
+                this.hasNewAudioSinceLastCommit = this.audioBuffer.length > 0;
                 if (this.callbacks.onStatus) {
                     this.callbacks.onStatus('Listening...');
                 }
                 break;
 
             case 'input_audio_buffer.speech_stopped':
-                this.debugLog('[AzureWebSocket] Speech stopped');
+                this.speechActive = false;
+                this.debugLog('[AzureWebSocket] Speech stopped (server VAD)');
+                if (this.hasNewAudioSinceLastCommit) {
+                    this.scheduleCommit({ delay: this.commitGracePeriodMs, force: true, reason: 'speech_stopped' });
+                } else {
+                    this.debugLog('[AzureWebSocket] No new audio since last commit - skipping speech_stopped commit');
+                }
+                break;
+
+            case 'input_audio_buffer.committed':
+                this.debugLog('[AzureWebSocket] Server acknowledged audio commit');
+                break;
+
+            case 'input_audio_buffer.commit_failed':
+                console.warn('[AzureWebSocket] Server reported commit failure:', message.error || message.reason);
+                this.responseInProgress = false;
+                this.pauseForEmptyCommit = true;
+                this.hasNewAudioSinceLastCommit = false;
+                this.pendingCommitRequest = null;
+                this.audioBuffer = [];
+                this.pendingAudioBytes = 0;
+                break;
+
+            case 'input_audio_buffer.commit_no_audio':
+                this.debugLog('[AzureWebSocket] Commit skipped by server (no audio)');
+                this.responseInProgress = false;
+                this.pauseForEmptyCommit = true;
+                this.metrics.emptyCommitWarnings += 1;
+                this.hasNewAudioSinceLastCommit = false;
+                this.pendingCommitRequest = null;
+                this.audioBuffer = [];
+                this.pendingAudioBytes = 0;
+                break;
+
+            case 'input_audio_buffer.commit_empty':
+            case 'input_audio_buffer_commit_empty':
+                console.warn('[AzureWebSocket] Server reported empty commit');
+                this.pauseForEmptyCommit = true;
+                this.metrics.emptyCommitWarnings += 1;
+                this.hasNewAudioSinceLastCommit = false;
+                this.pendingCommitRequest = null;
+                this.audioBuffer = [];
+                this.pendingAudioBytes = 0;
                 break;
 
             case 'conversation.item.input_audio_transcription.completed':
@@ -364,43 +475,12 @@ class AzureRealtimeWebSocketService extends LLMService {
                     if (cleanedTranscript && this.callbacks.onTranscription) {
                         this.callbacks.onTranscription(cleanedTranscript);
                     }
-
-                    if (this.pendingResponse) {
-                        if (cleanedTranscript.length === 0) {
-                            this.debugLog('[AzureWebSocket] Transcript empty after commit, skipping response');
-                            this.pendingResponse = false;
-                            break;
-                        }
-
-                        const transcriptId = message.item?.id || message.item_id || null;
-                        const isDuplicate = transcriptId && this.lastTranscriptId === transcriptId && this.lastTranscript === cleanedTranscript;
-                        const isDuplicateText = !transcriptId && this.lastTranscript === cleanedTranscript;
-
-                        if (isDuplicate || isDuplicateText) {
-                            this.debugLog('[AzureWebSocket] Duplicate transcript detected, ignoring');
-                            this.pendingResponse = false;
-                            break;
-                        }
-
-                        this.lastTranscript = cleanedTranscript;
-                        this.lastTranscriptId = transcriptId;
-                        this.pendingResponse = false;
-                        this.responseInProgress = true;
-
-                        if (!this.send({ type: "response.create" })) {
-                            console.warn('[AzureWebSocket] Failed to request response creation from transcript');
-                            this.responseInProgress = false;
-                        } else {
-                            this.debugLog('[AzureWebSocket] Triggered response.create for transcript');
-                        }
-                    }
                 }
                 break;
 
             case 'response.done':
                 this.debugLog('[AzureWebSocket] Response completed');
                 this.responseInProgress = false; // Reset response flag
-                this.pendingResponse = false;
                 if (this.textBuffer) {
                     this.publishTextUpdate(true);
                 }
@@ -414,12 +494,30 @@ class AzureRealtimeWebSocketService extends LLMService {
                 this.lastPublishedLength = 0;
                 this.lastLoggedLength = 0;
                 this.responseDelivered = false;
+                if (this.pendingCommitRequest && this.hasNewAudioSinceLastCommit && this.audioBuffer.length > 0) {
+                    const { force, reason } = this.pendingCommitRequest;
+                    this.pendingCommitRequest = null;
+                    this.commitAudioBufferAndCreateResponse({ force, reason: `${reason || 'deferred'}_post_response` });
+                } else {
+                    this.pendingCommitRequest = null;
+                }
+                this.logCommitMetrics('response.done');
+                break;
+
+            case 'response.error':
+                console.error('[AzureWebSocket] Response error:', message.error);
+                this.responseInProgress = false;
+                this.pendingCommitRequest = null;
                 break;
 
             case 'error':
                 console.error('[AzureWebSocket] WebSocket error:', message.error);
-                this.pendingResponse = false;
-                this.responseInProgress = false;
+                if (message.error?.code === 'conversation_already_has_active_response') {
+                    this.responseInProgress = true;
+                    this.pendingCommitRequest = { force: true, reason: 'server_active_response' };
+                } else {
+                    this.responseInProgress = false;
+                }
                 if (this.callbacks.onError) {
                     this.callbacks.onError(new Error(message.error?.message || 'WebSocket error'));
                 }
@@ -462,16 +560,28 @@ class AzureRealtimeWebSocketService extends LLMService {
             throw new Error('Azure WebSocket not initialized');
         }
 
+        if (!Buffer.isBuffer(audioData)) {
+            throw new Error('Audio data must be a Buffer');
+        }
+
+        if (this.isAudioSilent(audioData)) {
+            return true;
+        }
+
         this.debugLog(`[AzureWebSocket] Buffering audio chunk: ${audioData.length} bytes`);
 
         // Add audio chunk to buffer
         this.audioBuffer.push(audioData);
+        this.metrics.audioChunksAccepted += 1;
+        this.hasNewAudioSinceLastCommit = true;
+        this.pauseForEmptyCommit = false;
+        this.pendingAudioBytes += audioData.length;
         process.stdout.write('+');
 
         // If we already have enough buffered audio, flush immediately
         const bufferedBytes = this.getBufferedAudioBytes();
-        if (bufferedBytes >= this.forceCommitBytes && !this.isCommitting && !this.responseInProgress && !this.pendingResponse) {
-            this.commitAudioBufferAndCreateResponse();
+        if (bufferedBytes >= this.forceCommitBytes && !this.isCommitting && !this.responseInProgress) {
+            this.commitAudioBufferAndCreateResponse({ reason: 'buffer_threshold' });
             return true;
         }
 
@@ -487,22 +597,55 @@ class AzureRealtimeWebSocketService extends LLMService {
         return this.audioBuffer.reduce((total, chunk) => total + chunk.length, 0);
     }
 
-    scheduleCommit(delay = this.commitTimeoutMs) {
+    clearCommitTimer() {
         if (this.commitTimer) {
             clearTimeout(this.commitTimer);
+            this.commitTimer = null;
         }
+    }
+
+    scheduleCommit(options = {}) {
+        const config = typeof options === 'number' ? { delay: options } : options;
+        const {
+            delay = this.commitTimeoutMs,
+            force = false,
+            reason = 'timer'
+        } = config || {};
+
+        if (!this.hasNewAudioSinceLastCommit && !force) {
+            return;
+        }
+
+        this.clearCommitTimer();
 
         this.commitTimer = setTimeout(() => {
             this.commitTimer = null;
-            if (this.audioBuffer.length === 0) {
+
+            if (!this.hasNewAudioSinceLastCommit) {
+                this.debugLog('[AzureWebSocket] Commit timer skipped (%s) - no new audio', reason);
                 return;
             }
-            if (this.responseInProgress || this.isCommitting || this.pendingResponse) {
-                // Try again shortly once current response finishes
-                this.scheduleCommit(this.commitTimeoutMs);
+
+            if (this.pauseForEmptyCommit && !force) {
+                this.debugLog('[AzureWebSocket] Commit paused due to empty warning (%s)', reason);
                 return;
             }
-            this.commitAudioBufferAndCreateResponse();
+
+            if (this.speechActive && !force) {
+                this.debugLog('[AzureWebSocket] Speech still active - delaying commit (%s)', reason);
+                this.scheduleCommit({ delay: this.commitTimeoutMs, force, reason });
+                return;
+            }
+
+            if (this.responseInProgress || this.isCommitting) {
+                this.debugLog('[AzureWebSocket] Commit deferred (%s) - response active or committing', reason);
+                if (!this.pendingCommitRequest) {
+                    this.pendingCommitRequest = { force, reason };
+                }
+                return;
+            }
+
+            this.commitAudioBufferAndCreateResponse({ force, reason });
         }, delay);
     }
 
@@ -549,50 +692,112 @@ class AzureRealtimeWebSocketService extends LLMService {
         return true;
     }
 
-    async commitAudioBufferAndCreateResponse() {
-        if (this.isCommitting || this.responseInProgress || this.pendingResponse || this.audioBuffer.length === 0) {
+    async commitAudioBufferAndCreateResponse({ force = false, reason = 'unspecified' } = {}) {
+        if (this.responseInProgress) {
+            this.debugLog(`[AzureWebSocket] Commit deferred (${reason}) - active response`);
+            if (!this.pendingCommitRequest) {
+                this.pendingCommitRequest = { force, reason };
+            }
+            return;
+        }
+
+        if (this.isCommitting) {
+            this.debugLog(`[AzureWebSocket] Commit skipped (${reason}) - already committing`);
+            return;
+        }
+
+        if (this.pauseForEmptyCommit && !force) {
+            this.debugLog(`[AzureWebSocket] Commit paused (${reason}) - awaiting new audio after empty warning`);
+            return;
+        }
+
+        if (!this.hasNewAudioSinceLastCommit) {
+            this.debugLog(`[AzureWebSocket] Commit skipped (${reason}) - no new audio`);
             return;
         }
 
         const totalBytes = this.getBufferedAudioBytes();
-        if (totalBytes < this.minCommitBytes) {
-            this.debugLog(`[AzureWebSocket] Buffered ${totalBytes} bytes (< ${this.minCommitBytes}); waiting for more audio`);
-            this.scheduleCommit(this.commitTimeoutMs);
+        if (totalBytes === 0) {
+            this.debugLog(`[AzureWebSocket] Commit skipped (${reason}) - buffer empty`);
+            return;
+        }
+
+        if (!force && totalBytes < this.minCommitBytes) {
+            this.debugLog(`[AzureWebSocket] Buffered ${totalBytes} bytes (< ${this.minCommitBytes}); waiting for more audio (${reason})`);
+            this.scheduleCommit({ delay: this.commitTimeoutMs, force, reason });
             return;
         }
 
         this.isCommitting = true;
-        this.debugLog(`[AzureWebSocket] Committing buffered audio: ${this.audioBuffer.length} chunks (${totalBytes} bytes)`);
+        this.clearCommitTimer();
+        this.metrics.commitsAttempted += 1;
+        this.debugLog(`[AzureWebSocket] Committing buffered audio: ${this.audioBuffer.length} chunks (${totalBytes} bytes) via ${reason}`);
 
         try {
             if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
                 console.warn('[AzureWebSocket] Skipping commit - socket not open');
-                this.audioBuffer = [];
                 return;
             }
 
             if (!this.sendBufferedAudioChunks()) {
                 console.warn('[AzureWebSocket] Failed sending buffered audio');
-                this.pendingResponse = false;
                 return;
             }
 
-            // Commit the audio buffer
             if (!this.send({ type: "input_audio_buffer.commit" })) {
                 console.warn('[AzureWebSocket] Failed to commit audio buffer');
-                this.pendingResponse = false;
                 return;
             }
 
-            this.pendingResponse = true;
-            this.debugLog('[AzureWebSocket] Audio buffer committed, awaiting transcript');
+            this.debugLog('[AzureWebSocket] Audio buffer committed');
+
+            const conversationItemPayload = {
+                type: "conversation.item.create",
+                item: {
+                    type: "message",
+                    role: "user",
+                    content: [
+                        {
+                            type: "input_audio",
+                            audio: {
+                                format: "pcm16"
+                            }
+                        }
+                    ]
+                }
+            };
+            // Azure associates the most recent committed audio buffer with the item; no explicit audio_id needed.
+
+            if (!this.send(conversationItemPayload)) {
+                this.debugLog('[AzureWebSocket] Failed to enqueue conversation item for audio turn');
+            }
+
+            if (!this.responseInProgress) {
+                const responsePayload = {
+                    type: "response.create",
+                    response: {
+                        modalities: ["text"]
+                    }
+                };
+
+                this.responseInProgress = true;
+                if (!this.send(responsePayload)) {
+                    console.warn('[AzureWebSocket] Failed to request response creation');
+                    this.responseInProgress = false;
+                } else {
+                    this.metrics.responsesRequested += 1;
+                    this.debugLog('[AzureWebSocket] Requested response.create');
+                }
+            }
+
+            this.logCommitMetrics(reason);
         } catch (error) {
             console.error('[AzureWebSocket] Error committing audio buffer:', error);
-            this.pendingResponse = false;
         } finally {
-            // Clear buffer and flags
             this.audioBuffer = [];
             this.isCommitting = false;
+            this.hasNewAudioSinceLastCommit = false;
+            this.pendingAudioBytes = 0;
         }
     }
 

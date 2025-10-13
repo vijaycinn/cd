@@ -1,0 +1,100 @@
+
+C:\workspace\source\cd-oai\cd>npm start
+
+> cheating-daddy@0.4.0 start
+> electron-forge start
+
+✔ Checking your system
+✔ Locating application
+✔ Loading configuration
+✔ Preparing native dependencies [1s]
+✔ Running generateAssets hook
+✔ Running preStart hook
+
+
+Initializing random process names for stealth...
+Process name: securitymanager
+Display name: Lenovo FirefoxScheduler
+Window title: Display Settings
+Set process title to: securitymanager
+Applying anti-analysis measures...
+Set window title to: Display Settings
+Applying additional stealth measures...
+Hidden from Windows taskbar
+Content protection enabled
+Set random user agent
+Size update requested for view: main layout: normal
+Current window size: 1103 x 800
+Starting animated resize from 1103x800 to 900x600
+Updating global shortcuts with: {
+  moveUp: 'Ctrl+Up',
+  moveDown: 'Ctrl+Down',
+  moveLeft: 'Ctrl+Left',
+  moveRight: 'Ctrl+Right',
+  toggleVisibility: 'Ctrl+\\',
+  toggleClickThrough: 'Ctrl+M',
+  nextStep: 'Ctrl+Enter',
+  previousResponse: 'Ctrl+[',
+  nextResponse: 'Ctrl+]',
+  scrollUp: 'Ctrl+Shift+Up',
+  scrollDown: 'Ctrl+Shift+Down',
+  emergencyErase: 'Ctrl+Shift+E'
+}
+Registered moveUp: Ctrl+Up
+Registered moveDown: Ctrl+Down
+Registered moveLeft: Ctrl+Left
+Registered moveRight: Ctrl+Right
+Registered toggleVisibility: Ctrl+\
+Registered toggleClickThrough: Ctrl+M
+Registered nextStep: Ctrl+Enter
+Registered previousResponse: Ctrl+[
+Registered nextResponse: Ctrl+]
+Registered scrollUp: Ctrl+Shift+Up
+Registered scrollDown: Ctrl+Shift+Down
+Registered emergencyErase: Ctrl+Shift+E
+Animation complete: 900x600
+Size update requested for view: customize layout: normal
+Current window size: 905 x 600
+Starting animated resize from 905x600 to 900x800
+Animation complete: 900x800
+[AudioRouter] Audio mode set to: mic_only
+[AudioRouter] Audio mode set to: both
+[AudioRouter] Audio mode set to: speaker_only
+[AudioRouter] Audio mode set to: mic_only
+Size update requested for view: main layout: normal
+Current window size: 905 x 800
+Starting animated resize from 905x800 to 900x600
+Animation complete: 900x600
+[index.js] initialize-azure-realtime called with parameters - switching to WebSocket: {
+  hasApiKey: true,
+  hasEndpoint: true,
+  deployment: 'gpt-4o-mini-realtime-preview',
+  region: 'eastus2',
+  profile: 'sales',
+  language: 'en-US'
+}
+[AzureWebSocket] Initializing Azure OpenAI WebSocket Service (manual implementation)
+[AzureWebSocket] Extracted hostname from endpoint: smec-cloudai-poc-resource.services.ai.azure.com
+[AzureWebSocket] Manual WebSocket URL constructed (api key hidden)
+[AzureWebSocket] Initializing Azure WebSocket Realtime service (manual implementation)
+[AzureWebSocket] WebSocket connection opened!
+[AzureRealtime] Callback - Status: Connected
+[AzureWebSocket] Azure WebSocket Realtime service initialized successfully
+[AzureRealtime] Callback - Status: Connected
+[AudioRouter] Starting Azure-specific routing
+[AudioRouter] ipcMain.removeHandler available: true
+[index.js] Azure Realtime WebSocket service initialized successfully
+++++++++++++.[AzureRealtime] Callback - Status: Listening...
+[AzureWebSocket] Unhandled WebSocket message type: input_audio_buffer.committed
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++[index.js] close-azure-session called
+[index.js] Closing Azure session
+[AzureWebSocket] Closing Azure WebSocket connection
+[AzureWebSocket] Azure WebSocket service closed successfully
+[index.js] Azure session closed successfully
+[AudioRouter] Stopping Azure-specific routing, restoring Gemini handlers
+Size update requested for view: main layout: normal
+Current window size: 905 x 600
+Starting animated resize from 905x600 to 900x600
+Animation complete: 900x600
+[AzureWebSocket] WebSocket closed: code=1005, reason=
+[AzureRealtime] Callback - Status: Disconnected

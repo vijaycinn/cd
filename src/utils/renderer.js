@@ -335,17 +335,19 @@ function triggerAzureWebSocketInit(profile = 'interview', language = 'en-US') {
     const azureApiKey = localStorage.getItem('azureApiKey')?.trim();
     const azureEndpoint = localStorage.getItem('azureEndpoint')?.trim();
     const azureDeployment = localStorage.getItem('azureDeployment') || 'gpt-realtime';
+    const azureRegion = localStorage.getItem('azureRegion')?.trim() || 'eastus2';
 
     console.log('[renderer] Azure credentials from localStorage:', {
         hasApiKey: !!azureApiKey,
         hasEndpoint: !!azureEndpoint,
-        deployment: azureDeployment
+        deployment: azureDeployment,
+        region: azureRegion
     });
 
-    if (azureApiKey && azureEndpoint) {
+    if (azureApiKey && azureEndpoint && azureRegion) {
         console.log('[renderer] Invoking initialize-azure-realtime IPC call');
         // Fire and forget - this will start the service creation in main process
-        ipcRenderer.invoke('initialize-azure-realtime', azureApiKey, azureEndpoint, azureDeployment,
+        ipcRenderer.invoke('initialize-azure-realtime', azureApiKey, azureEndpoint, azureDeployment, azureRegion,
                           localStorage.getItem('customPrompt') || '', profile, language)
             .then(success => {
                 console.log('[renderer] initialize-azure-realtime IPC call result:', success);
@@ -356,8 +358,8 @@ function triggerAzureWebSocketInit(profile = 'interview', language = 'en-US') {
                 cheddar.setStatus('error');
             });
     } else {
-        console.error('[renderer] Azure credentials incomplete. Required: azureApiKey, azureEndpoint');
-        console.log('[renderer] Current values - apiKey:', azureApiKey, 'endpoint:', azureEndpoint);
+        console.error('[renderer] Azure credentials incomplete. Required: azureApiKey, azureEndpoint, azureRegion');
+        console.log('[renderer] Current values - apiKey:', azureApiKey, 'endpoint:', azureEndpoint, 'region:', azureRegion);
         cheddar.setStatus('error');
     }
 }
@@ -426,6 +428,12 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
     console.log('🎯 Token tracker reset for new capture session');
 
     const audioMode = localStorage.getItem('audioMode') || 'speaker_only';
+
+    try {
+        await ipcRenderer.invoke('set-audio-mode', audioMode);
+    } catch (error) {
+        console.warn('Failed to update audio mode in main process:', error);
+    }
 
     try {
         if (isMacOS) {

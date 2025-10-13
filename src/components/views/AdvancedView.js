@@ -330,7 +330,8 @@ export class AdvancedView extends LitElement {
         llmService: { type: String },
         azureApiKey: { type: String },
         azureEndpoint: { type: String },
-        azureDeployment: { type: String },
+    azureRegion: { type: String },
+    azureDeployment: { type: String },
     };
 
     constructor() {
@@ -349,9 +350,10 @@ export class AdvancedView extends LitElement {
 
         // LLM Service defaults
         this.llmService = localStorage.getItem('llmService') || 'gemini';
-        this.azureApiKey = localStorage.getItem('azureApiKey') || '';
-        this.azureEndpoint = localStorage.getItem('azureEndpoint') || '';
-        this.azureDeployment = localStorage.getItem('azureDeployment') || 'gpt-realtime';
+    this.azureApiKey = localStorage.getItem('azureApiKey') || '';
+    this.azureEndpoint = localStorage.getItem('azureEndpoint') || '';
+    this.azureRegion = localStorage.getItem('azureRegion') || 'eastus2';
+    this.azureDeployment = localStorage.getItem('azureDeployment') || 'gpt-realtime';
 
         this.loadRateLimitSettings();
         this.loadContentProtectionSetting();
@@ -639,6 +641,11 @@ export class AdvancedView extends LitElement {
                             <div class="form-group">
                                 <label class="form-label">Azure Endpoint</label>
                                 <input type="text" name="azureEndpoint" class="form-control" .value=${this.azureEndpoint} @input=${this.handleInputChange} placeholder="https://your-resource.openai.azure.com/">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Azure Region</label>
+                                <input type="text" name="azureRegion" class="form-control" .value=${this.azureRegion} @input=${this.handleInputChange} placeholder="eastus2">
+                                <div class="form-description">Matches the deployment region in Azure AI Foundry (for example, eastus2 or swedencentral)</div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Deployment Name</label>

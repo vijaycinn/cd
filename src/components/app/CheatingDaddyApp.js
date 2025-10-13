@@ -286,8 +286,9 @@ export class CheatingDaddyApp extends LitElement {
             apiKey = localStorage.getItem('azureApiKey')?.trim();
             // ADDED: Also validate endpoint for Azure
             const endpoint = localStorage.getItem('azureEndpoint')?.trim();
-            console.log(`[CheatingDaddyApp] Azure credentials - apiKey: ${apiKey ? '***' : 'MISSING'}, endpoint: ${endpoint}`);
-            if (!apiKey || !endpoint) {
+            const region = (localStorage.getItem('azureRegion') || 'eastus2')?.trim();
+            console.log(`[CheatingDaddyApp] Azure credentials - apiKey: ${apiKey ? '***' : 'MISSING'}, endpoint: ${endpoint}, region: ${region}`);
+            if (!apiKey || !endpoint || !region) {
                 // Show error for missing Azure credentials
                 console.log('[CheatingDaddyApp] Missing Azure credentials, triggering error');
                 this.triggerAzureCredentialError();
@@ -314,7 +315,8 @@ export class CheatingDaddyApp extends LitElement {
         } else if (llmService === 'azure') {
             const azureEndpoint = localStorage.getItem('azureEndpoint');
             const azureDeployment = localStorage.getItem('azureDeployment') || 'gpt-realtime';
-            console.log(`[CheatingDaddyApp] Initializing Azure service - endpoint: ${azureEndpoint}, deployment: ${azureDeployment}`);
+            const azureRegion = (localStorage.getItem('azureRegion') || 'eastus2');
+            console.log(`[CheatingDaddyApp] Initializing Azure service - endpoint: ${azureEndpoint}, region: ${azureRegion}, deployment: ${azureDeployment}`);
             await cheddar.initializeAzureRealtime(this.selectedProfile, this.selectedLanguage, azureEndpoint, azureDeployment);
         }
 

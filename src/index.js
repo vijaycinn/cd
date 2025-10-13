@@ -112,6 +112,16 @@ function setupGeneralIpcHandlers() {
         }
     });
 
+    ipcMain.handle('set-audio-mode', async (event, mode) => {
+        try {
+            audioRouter.setAudioMode(mode);
+            return { success: true };
+        } catch (error) {
+            console.error('Error updating audio mode:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     ipcMain.handle('quit-application', async event => {
         try {
             stopMacOSAudioCapture();
@@ -165,12 +175,13 @@ function setupGeneralIpcHandlers() {
     });
 
     // Azure Realtime IPC handlers
-    ipcMain.handle('initialize-azure-realtime', async (event, azureApiKey, azureEndpoint, azureDeployment, customPrompt, profile, language) => {
+    ipcMain.handle('initialize-azure-realtime', async (event, azureApiKey, azureEndpoint, azureDeployment, azureRegion, customPrompt, profile, language) => {
         try {
             console.log('[index.js] initialize-azure-realtime called with parameters - switching to WebSocket:', {
                 hasApiKey: !!azureApiKey,
                 hasEndpoint: !!azureEndpoint,
                 deployment: azureDeployment,
+                region: azureRegion,
                 profile,
                 language
             });
@@ -181,7 +192,7 @@ function setupGeneralIpcHandlers() {
             // initializeNewSession(); // Don't call this - it belongs to Gemini
 
             // Create AzureRealtimeWebSocketService
-            const azureService = new AzureRealtimeWebSocketService(azureApiKey, azureEndpoint, azureDeployment, customPrompt, profile, language);
+            const azureService = new AzureRealtimeWebSocketService(azureApiKey, azureEndpoint, azureDeployment, azureRegion, customPrompt, profile, language);
 
             // Set up callbacks to send updates to renderer
             azureService.setCallbacks({
@@ -245,7 +256,19 @@ function setupGeneralIpcHandlers() {
             }
 
             console.log('[index.js] Sending text message to Azure OpenAI service');
-            const response = await azureServiceRef.current.sendRealtimeInput({ text: text.trim() });
+            const azureService = azureServiceRef.current;
+            const payload = { text: text.trim() };
+            let response;
+
+            if (typeof azureService.sendRealtimeInput === 'function') {
+                console.log('[index.js] azureService.sendRealtimeInput available');
+                response = await azureService.sendRealtimeInput(payload);
+            } else if (typeof azureService.sendText === 'function') {
+                console.warn('[index.js] azureService.sendRealtimeInput missing; falling back to sendText');
+                response = await azureService.sendText(payload.text);
+            } else {
+                throw new Error('Azure realtime service does not support text input');
+            }
             console.log('[index.js] Azure OpenAI service returned response:', response ? '***' : 'NO RESPONSE');
 
             return { success: true, response };

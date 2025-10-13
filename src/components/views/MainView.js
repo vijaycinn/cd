@@ -235,10 +235,17 @@ export class MainView extends LitElement {
 
     handleInput(e) {
         const key = this.llmService === 'azure' ? 'azureApiKey' : 'geminiApiKey';
-        window.electron.ipcRenderer.invoke('set-setting', {
-            key,
-            value: e.target.value
-        });
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(key, e.target.value);
+        }
+        if (window.electron?.ipcRenderer?.invoke) {
+            window.electron.ipcRenderer
+                .invoke('set-setting', {
+                    key,
+                    value: e.target.value
+                })
+                .catch(error => console.warn('Failed to persist setting', key, error?.message));
+        }
         // Clear error state when user starts typing
         if (this.showApiKeyError) {
             this.showApiKeyError = false;
@@ -246,8 +253,17 @@ export class MainView extends LitElement {
     }
 
     async initializeSettings() {
-        // Get initial settings from main process
-        this.llmService = await window.electron.ipcRenderer.invoke('get-setting', 'llmService') || 'gemini';
+        // Get initial settings (prefer persisted store, fall back to localStorage)
+        if (window.electron?.ipcRenderer?.invoke) {
+            try {
+                this.llmService = (await window.electron.ipcRenderer.invoke('get-setting', 'llmService')) || localStorage.getItem('llmService') || 'gemini';
+            } catch (error) {
+                console.warn('Falling back to localStorage for llmService:', error?.message);
+                this.llmService = localStorage.getItem('llmService') || 'gemini';
+            }
+        } else {
+            this.llmService = localStorage.getItem('llmService') || 'gemini';
+        }
         await this.validateAzureConfig();
         this.requestUpdate();
     }
@@ -255,10 +271,16 @@ export class MainView extends LitElement {
     handleProviderChange(e) {
         const newProvider = e.target.value;
         this.llmService = newProvider;
-        window.electron.ipcRenderer.invoke('set-setting', { 
-            key: 'llmService',
-            value: newProvider 
-        });
+        if (window.electron?.ipcRenderer?.invoke) {
+            window.electron.ipcRenderer
+                .invoke('set-setting', {
+                    key: 'llmService',
+                    value: newProvider
+                })
+                .catch(error => console.warn('Failed to persist llmService', error?.message));
+        } else {
+            localStorage.setItem('llmService', newProvider);
+        }
         
         if (newProvider === 'azure') {
             this.validateAzureConfig();
@@ -267,22 +289,72 @@ export class MainView extends LitElement {
     }
 
     async validateAzureConfig() {
-        const azureApiKey = await window.electron.ipcRenderer.invoke('get-setting', 'azureApiKey');
-        const azureEndpoint = await window.electron.ipcRenderer.invoke('get-setting', 'azureEndpoint');
-        const azureDeployment = await window.electron.ipcRenderer.invoke('get-setting', 'azureDeployment');
-        
-        this.azureConfigComplete = !!(azureApiKey && azureEndpoint && azureDeployment);
+        let azureApiKey = '';
+        let azureEndpoint = '';
+        let azureDeployment = '';
+
+        if (window.electron?.ipcRenderer?.invoke) {
+            try {
+                azureApiKey = await window.electron.ipcRenderer.invoke('get-setting', 'azureApiKey');
+            } catch (error) {
+                console.warn('Falling back to localStorage for azureApiKey:', error?.message);
+            }
+            try {
+                azureEndpoint = await window.electron.ipcRenderer.invoke('get-setting', 'azureEndpoint');
+            } catch (error) {
+                console.warn('Falling back to localStorage for azureEndpoint:', error?.message);
+            }
+            try {
+                azureDeployment = await window.electron.ipcRenderer.invoke('get-setting', 'azureDeployment');
+            } catch (error) {
+                console.warn('Falling back to localStorage for azureDeployment:', error?.message);
+            }
+        }
+
+        if (!azureApiKey && typeof localStorage !== 'undefined') {
+            azureApiKey = localStorage.getItem('azureApiKey');
+        }
+
+        if (!azureEndpoint && typeof localStorage !== 'undefined') {
+            azureEndpoint = localStorage.getItem('azureEndpoint');
+        }
+
+        if (!azureDeployment && typeof localStorage !== 'undefined') {
+            azureDeployment = localStorage.getItem('azureDeployment');
+        }
+
+        let azureRegion = '';
+        if (window.electron?.ipcRenderer?.invoke) {
+            try {
+                azureRegion = await window.electron.ipcRenderer.invoke('get-setting', 'azureRegion');
+            } catch (error) {
+                console.warn('Falling back to localStorage for azureRegion:', error?.message);
+            }
+        }
+
+        if (!azureRegion && typeof localStorage !== 'undefined') {
+            azureRegion = localStorage.getItem('azureRegion');
+        }
+
+        if (!azureRegion) {
+            azureRegion = 'eastus2';
+        }
+
+        this.azureConfigComplete = !!(azureApiKey && azureEndpoint && azureDeployment && azureRegion);
         return this.azureConfigComplete;
     }
 
-    handleStartClick() {
+    async handleStartClick() {
         if (this.isInitializing) {
             return;
         }
 
-        if (this.llmService === 'azure' && !this.validateAzureConfig()) {
-            this.triggerApiKeyError();
-            return;
+        if (this.llmService === 'azure') {
+            const isValidAzureConfig = await this.validateAzureConfig();
+            if (!isValidAzureConfig) {
+                this.triggerApiKeyError();
+                return;
+            }
         }
 
         this.onStart();

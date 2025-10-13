@@ -6,10 +6,24 @@ class AudioRouter {
         this.geminiSessionRef = null;
         this.azureServiceRef = null;
         this.routingActive = false; // Track if Azure routing is active
+        this.audioMode = 'speaker_only';
 
         // Store original Gemini handlers to restore them later
         this.originalAudioHandler = null;
         this.originalMicAudioHandler = null;
+    }
+
+    setAudioMode(mode) {
+        const validModes = ['speaker_only', 'mic_only', 'both'];
+        if (!validModes.includes(mode)) {
+            console.warn(`[AudioRouter] Ignoring invalid audio mode: ${mode}`);
+            return;
+        }
+
+        if (this.audioMode !== mode) {
+            this.audioMode = mode;
+            console.log('[AudioRouter] Audio mode set to:', mode);
+        }
     }
 
     setGeminiSessionRef(geminiSessionRef) {
@@ -32,11 +46,14 @@ class AudioRouter {
         if (this.routingActive) return; // Already active
 
         console.log('[AudioRouter] Starting Azure-specific routing');
+        const hasRemoveHandler = typeof ipcMain.removeHandler === 'function';
+        console.log('[AudioRouter] ipcMain.removeHandler available:', hasRemoveHandler);
 
-        // Store existing handlers (if any) - but Gemini handlers should be already registered
-        // We'll overwrite with Azure handlers
+        if (hasRemoveHandler) {
+            ipcMain.removeHandler('send-audio-content');
+            ipcMain.removeHandler('send-mic-audio-content');
+        }
 
-        // Register Azure handlers
         ipcMain.handle('send-audio-content', this.handleAudioContent.bind(this));
         ipcMain.handle('send-mic-audio-content', this.handleMicAudioContent.bind(this));
 
@@ -48,6 +65,11 @@ class AudioRouter {
         if (!this.routingActive) return; // Already inactive
 
         console.log('[AudioRouter] Stopping Azure-specific routing, restoring Gemini handlers');
+        const hasRemoveHandler = typeof ipcMain.removeHandler === 'function';
+        if (hasRemoveHandler) {
+            ipcMain.removeHandler('send-audio-content');
+            ipcMain.removeHandler('send-mic-audio-content');
+        }
 
         // Restore Gemini handlers
         ipcMain.handle('send-audio-content', async (event, { data, mimeType }) => {
@@ -84,8 +106,12 @@ class AudioRouter {
     // Azure-specific audio content handler
     async handleAudioContent(event, { data, mimeType }) {
         if (this.azureServiceRef?.current) {
+            const allowSystemAudio = this.audioMode === 'speaker_only' || this.audioMode === 'both';
+            if (!allowSystemAudio) {
+                return { success: true, skipped: 'azure-system-audio-disabled' };
+            }
+
             try {
-                process.stdout.write('+'); // Azure system audio marker
                 const buffer = Buffer.from(data, 'base64');
                 await this.azureServiceRef.current.sendAudio(buffer);
                 return { success: true };
@@ -102,8 +128,12 @@ class AudioRouter {
     // Azure-specific microphone audio handler
     async handleMicAudioContent(event, { data, mimeType }) {
         if (this.azureServiceRef?.current) {
+            const allowMicAudio = this.audioMode === 'mic_only' || this.audioMode === 'both';
+            if (!allowMicAudio) {
+                return { success: true, skipped: 'azure-mic-audio-disabled' };
+            }
+
             try {
-                process.stdout.write('~'); // Azure microphone audio marker
                 const buffer = Buffer.from(data, 'base64');
                 await this.azureServiceRef.current.sendAudio(buffer);
                 return { success: true };

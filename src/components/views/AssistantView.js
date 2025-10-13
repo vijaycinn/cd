@@ -495,10 +495,33 @@ export class AssistantView extends LitElement {
     }
 
     async handleSendText() {
+        console.log('[AssistantView] handleSendText called');
         const textInput = this.shadowRoot.querySelector('#textInput');
-        if (textInput && textInput.value.trim()) {
-            const message = textInput.value.trim();
-            textInput.value = ''; // Clear input
+        const message = textInput?.value?.trim();
+        console.log('[AssistantView] message:', message ? '***' : 'EMPTY');
+
+        if (!message) return;
+
+        // Clear input immediately
+        textInput.value = '';
+
+        console.log('[AssistantView] Checking llmService from localStorage');
+        const llmService = localStorage.getItem('llmService') || 'gemini';
+        console.log('[AssistantView] llmService:', llmService);
+
+        if (llmService === 'azure') {
+            console.log('[AssistantView] Routing to Azure handler via window.cheddar.sendAzureTextMessage');
+            // Route directly to Azure via renderer global
+            const result = await window.cheddar.sendAzureTextMessage(message);
+            if (!result.success) {
+                console.error('[AssistantView] Failed to send message to Azure:', result.error);
+            } else {
+                console.log('[AssistantView] Azure message sent successfully');
+                this._awaitingNewResponse = true;
+            }
+        } else {
+            console.log('[AssistantView] Routing via Gemini handler (this.onSendText)');
+            // Route via parent component handler (for Gemini)
             await this.onSendText(message);
         }
     }

@@ -435,8 +435,8 @@ export class CustomizeView extends LitElement {
         // Google Search default
         this.googleSearchEnabled = true;
 
-        // Advanced mode default
-        this.advancedMode = false;
+        // Advanced mode default - enable by default
+        this.advancedMode = localStorage.getItem('advancedMode') !== 'false';
 
         // Background transparency default
         this.backgroundTransparency = 0.8;

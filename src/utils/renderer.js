@@ -161,18 +161,261 @@ async function initializeGemini(profile = 'interview', language = 'en-US') {
     }
 }
 
+async function initializeAzureRealtime(profile = 'interview', language = 'en-US') {
+    console.log('[renderer] initializeAzureRealtime called - routing to WebSocket implementation', { profile, language });
+    return await triggerAzureWebSocketInit(profile, language);
+}
+
+let azureWebSocket = null;
+
+// WebSocket-based Azure implementation
+async function initializeAzureWebSocket(config) {
+    console.log('[renderer] initializeAzureWebSocket called with config:', config);
+
+    // Clear any existing connection
+    if (azureWebSocket && azureWebSocket.readyState !== WebSocket.CLOSED) {
+        azureWebSocket.close();
+        azureWebSocket = null;
+    }
+
+    try {
+        console.log('[renderer] STEP 1: Creating WebSocket connection...');
+        console.log('[renderer] WebSocket URL:', config.websocketUrl.replace(/api-key=[^&]*/, 'api-key=***'));
+
+        azureWebSocket = new WebSocket(config.websocketUrl);
+        console.log('[renderer] STEP 1: ✓ WebSocket created');
+
+        return new Promise((resolve, reject) => {
+            const connectionTimeout = setTimeout(() => {
+                reject(new Error('WebSocket connection timeout'));
+            }, 15000);
+
+            azureWebSocket.onopen = () => {
+                console.log('[renderer] STEP 2: ✓ WebSocket connection opened');
+
+                // Send session configuration within 10 seconds of connection
+                console.log('[renderer] STEP 3: Sending initial session update...');
+                const sessionUpdate = {
+                    type: 'session.update',
+                    session: {
+                        voice: 'alloy',
+                        instructions: config.customPrompt || '',
+                        input_audio_format: 'pcm16',
+                        output_audio_format: 'pcm16',
+                        input_audio_transcription: {
+                            model: 'whisper-1'
+                        },
+                        turn_detection: {
+                            type: 'server_vad'
+                        },
+                        tools: [],
+                        modalities: ['text', 'audio']
+                    }
+                };
+
+                azureWebSocket.send(JSON.stringify(sessionUpdate));
+                console.log('[renderer] STEP 3: ✓ Session update sent');
+
+                clearTimeout(connectionTimeout);
+
+                // Send success response to main process
+                const initResponse = {
+                    success: true,
+                    sessionId: 'websocket-session-' + Date.now()
+                };
+
+                ipcRenderer.send('azure-websocket-initialized', initResponse);
+                resolve();
+            };
+
+            azureWebSocket.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    console.log('[renderer] WebSocket message:', message.type);
+
+                    // Handle Azure realtime events and forward to main process
+                    ipcRenderer.send('azure-websocket-event', message);
+
+                    // Process events for UI updates
+                    switch (message.type) {
+                        case 'session.created':
+                            console.log('[renderer] Session created:', message.session?.id);
+                            cheddar.setStatus('Connected');
+                            break;
+
+                        case 'session.updated':
+                            console.log('[renderer] Session updated');
+                            break;
+
+                        case 'response.text.delta':
+                            if (message.delta) {
+                                // Update UI with streaming text
+                                if (window.cheddar && window.cheddar.element()) {
+                                    window.cheddar.element().setPartialResponse(message.delta);
+                                }
+                            }
+                            break;
+
+                        case 'response.audio.delta':
+                            console.log('[renderer] Audio delta received');
+                            // Audio deltas can be handled here for playback
+                            break;
+
+                        case 'response.done':
+                            console.log('[renderer] Response completed');
+                            cheddar.setStatus('Ready');
+                            break;
+
+                        case 'input_audio_buffer.speech_started':
+                            console.log('[renderer] Speech detected');
+                            cheddar.setStatus('Listening...');
+                            break;
+
+                        case 'input_audio_buffer.speech_stopped':
+                            console.log('[renderer] Speech stopped');
+                            break;
+
+                        case 'conversation.item.input_audio_transcription.completed':
+                            console.log('[renderer] Transcription:', message.transcript);
+                            // Transcription can be displayed in UI if needed
+                            break;
+
+                        case 'error':
+                            console.error('[renderer] WebSocket error:', message.error);
+                            ipcRenderer.send('azure-websocket-error', message.error);
+                            cheddar.setStatus('Error: ' + message.error?.message);
+                            break;
+                    }
+                } catch (error) {
+                    console.error('[renderer] Error parsing WebSocket message:', error);
+                }
+            };
+
+            azureWebSocket.onerror = (error) => {
+                console.error('[renderer] WebSocket error:', error);
+                clearTimeout(connectionTimeout);
+                reject(new Error('WebSocket connection failed'));
+            };
+
+            azureWebSocket.onclose = (event) => {
+                console.log('[renderer] WebSocket closed:', event.code, event.reason);
+                if (event.code !== 1000) { // Not a normal closure
+                    console.error('[renderer] WebSocket closed unexpectedly');
+                }
+            };
+        });
+
+    } catch (error) {
+        console.error('[renderer] WebSocket initialization failed:', error);
+
+        // Send error response to main process
+        const errorResponse = {
+            success: false,
+            error: error.message
+        };
+
+        ipcRenderer.send('azure-websocket-initialized', errorResponse);
+        throw error;
+    }
+}
+
+function closeAzureWebSocket() {
+    if (azureWebSocket) {
+        console.log('[renderer] Closing Azure WebSocket...');
+        azureWebSocket.close();
+        azureWebSocket = null;
+    }
+}
+
+// Wrapper function that triggers WebSocket service initialization in main process
+// Do NOT await this - it triggers async initialization that will respond via 'initialize-azure-websocket' IPC
+function triggerAzureWebSocketInit(profile = 'interview', language = 'en-US') {
+    console.log('[renderer] triggerAzureWebSocketInit called', { profile, language });
+
+    const azureApiKey = localStorage.getItem('azureApiKey')?.trim();
+    const azureEndpoint = localStorage.getItem('azureEndpoint')?.trim();
+    const azureDeployment = localStorage.getItem('azureDeployment') || 'gpt-realtime';
+
+    console.log('[renderer] Azure credentials from localStorage:', {
+        hasApiKey: !!azureApiKey,
+        hasEndpoint: !!azureEndpoint,
+        deployment: azureDeployment
+    });
+
+    if (azureApiKey && azureEndpoint) {
+        console.log('[renderer] Invoking initialize-azure-realtime IPC call');
+        // Fire and forget - this will start the service creation in main process
+        ipcRenderer.invoke('initialize-azure-realtime', azureApiKey, azureEndpoint, azureDeployment,
+                          localStorage.getItem('customPrompt') || '', profile, language)
+            .then(success => {
+                console.log('[renderer] initialize-azure-realtime IPC call result:', success);
+                // The status will be updated via other IPC channels during initialization
+            })
+            .catch(error => {
+                console.error('[renderer] Error in initialize-azure-realtime IPC call:', error);
+                cheddar.setStatus('error');
+            });
+    } else {
+        console.error('[renderer] Azure credentials incomplete. Required: azureApiKey, azureEndpoint');
+        console.log('[renderer] Current values - apiKey:', azureApiKey, 'endpoint:', azureEndpoint);
+        cheddar.setStatus('error');
+    }
+}
+
+// Azure OpenAI text message handler
+async function sendAzureTextMessage(text) {
+    if (!text || text.trim().length === 0) {
+        console.warn('Cannot send empty text message');
+        return { success: false, error: 'Empty message' };
+    }
+
+    try {
+        const result = await ipcRenderer.invoke('send-azure-text-message', text);
+        if (result.success) {
+            console.log('Text message sent successfully to Azure OpenAI');
+            // Update the response in the UI
+            if (result.response) {
+                cheddar.setResponse(result.response);
+            }
+        } else {
+            console.error('Failed to send message to Azure OpenAI:', result.error);
+        }
+        return result;
+    } catch (error) {
+        console.error('Error sending text message to Azure OpenAI:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Close Azure session
+async function closeAzureSession() {
+    try {
+        const result = await ipcRenderer.invoke('close-azure-session');
+        if (result.success) {
+            console.log('Azure session closed successfully');
+        } else {
+            console.error('Failed to close Azure session:', result.error);
+        }
+        return result;
+    } catch (error) {
+        console.error('Error closing Azure session:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 // Listen for status updates
 ipcRenderer.on('update-status', (event, status) => {
     console.log('Status update:', status);
     cheddar.setStatus(status);
 });
 
-// Listen for responses - REMOVED: This is handled in CheatingDaddyApp.js to avoid duplicates
-// ipcRenderer.on('update-response', (event, response) => {
-//     console.log('Gemini response:', response);
-//     cheddar.e().setResponse(response);
-//     // You can add UI elements to display the response if needed
-// });
+// Listen for responses from both Gemini and Azure
+ipcRenderer.on('update-response', (event, response) => {
+    console.log('LLM response received:', response ? '***' : 'NO RESPONSE');
+    if (cheddar.e() && cheddar.e().setResponse) {
+        cheddar.e().setResponse(response);
+    }
+});
 
 async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'medium') {
     // Store the image quality for manual screenshots
@@ -745,6 +988,329 @@ function handleShortcut(shortcutKey) {
     }
 }
 
+let azureWebRTCConnection = null;
+let azureDataChannel = null;
+
+async function initializeAzureWebRTC(config) {
+    console.log('[renderer] initializeAzureWebRTC called with config:', config);
+
+    // Clear any existing connection
+    if (azureWebRTCConnection) {
+        azureWebRTCConnection.close();
+        azureWebRTCConnection = null;
+    }
+
+    try {
+        // STEP 1: Check WebRTC API availability
+        console.log('[renderer] STEP 1: Checking WebRTC API availability...');
+        if (typeof RTCPeerConnection === 'undefined') {
+            throw new Error('WebRTC RTCPeerConnection API not available in this environment');
+        }
+        console.log('[renderer] STEP 1: ✓ WebRTC RTCPeerConnection is available');
+
+        // STEP 2: Check media devices availability
+        console.log('[renderer] STEP 2: Checking media devices API...');
+        if (typeof navigator === 'undefined' || typeof navigator.mediaDevices === 'undefined') {
+            throw new Error('Media devices API not available in this environment');
+        }
+        console.log('[renderer] STEP 2: ✓ Media devices API is available');
+
+        // STEP 3: Generate ephemeral API key
+        console.log('[renderer] STEP 3: Generating ephemeral API key from:', config.sessionsUrl);
+        const ephemeralResponse = await fetch(config.sessionsUrl, {
+            method: 'POST',
+            headers: {
+                'api-key': config.apiKey,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: config.deployment,
+                voice: 'alloy'
+            })
+        });
+
+        if (!ephemeralResponse.ok) {
+            const errorText = await ephemeralResponse.text();
+            throw new Error(`Ephemeral key request failed: HTTP ${ephemeralResponse.status} - ${errorText}`);
+        }
+
+        const ephemeralData = await ephemeralResponse.json();
+        if (!ephemeralData.id || !ephemeralData.client_secret?.value) {
+            throw new Error('Invalid ephemeral key response - missing required fields');
+        }
+        console.log('[renderer] STEP 3: ✓ Ephemeral key generated successfully (session:', ephemeralData.id, ')');
+
+        // STEP 4: Create WebRTC peer connection
+        console.log('[renderer] STEP 4: Creating WebRTC peer connection...');
+        azureWebRTCConnection = new RTCPeerConnection();
+        console.log('[renderer] STEP 4: ✓ RTCPeerConnection created');
+
+        // STEP 5: Set up data channel for realtime events
+        console.log('[renderer] STEP 5: Setting up data channel...');
+        azureDataChannel = azureWebRTCConnection.createDataChannel('realtime-channel');
+        console.log('[renderer] STEP 5: ✓ Data channel created');
+
+        azureDataChannel.addEventListener('open', () => {
+            console.log('[renderer] Data channel opened');
+            // Note: In Azure WebRTC, initial session.update calls are ignored.
+            // Session is created during SDP exchange. We will send session update
+            // AFTER WebRTC connection is fully established.
+        });
+
+        azureDataChannel.addEventListener('message', (event) => {
+            const realtimeEvent = JSON.parse(event.data);
+            console.log('[renderer] WebRTC realtime event:', realtimeEvent.type);
+
+            // Handle realtime events via IPC
+            ipcRenderer.send('azure-webrtc-event', realtimeEvent);
+
+            // Process realtime events for UI feedback
+            switch (realtimeEvent.type) {
+                case 'session.created':
+                    console.log('[renderer] Session created:', realtimeEvent.session?.id);
+                    break;
+                case 'session.updated':
+                    console.log('[renderer] Session updated');
+                    break;
+                case 'response.created':
+                    console.log('[renderer] Response created');
+                    break;
+                case 'response.text.delta':
+                    const deltaText = realtimeEvent.delta;
+                    if (deltaText) {
+                        // Update streaming response
+                        if (window.cheddar && window.cheddar.element()) {
+                            // Accumulate text deltas (this is simplified - real implementation would track response state)
+                            window.cheddar.element().setPartialResponse(deltaText);
+                        }
+                    }
+                    break;
+                case 'response.audio.delta':
+                    console.log('[renderer] Audio delta received');
+                    break;
+                case 'response.done':
+                    console.log('[renderer] Response completed');
+                    break;
+                case 'input_audio_buffer.speech_started':
+                    console.log('[renderer] Speech detected');
+                    break;
+                case 'input_audio_buffer.speech_stopped':
+                    console.log('[renderer] Speech stopped');
+                    break;
+                case 'conversation.item.input_audio_transcription.completed':
+                    console.log('[renderer] Transcription:', realtimeEvent.transcript);
+                    break;
+                case 'error':
+                    console.error('[renderer] WebRTC error:', realtimeEvent.error);
+                    ipcRenderer.send('azure-webrtc-error', realtimeEvent.error);
+                    break;
+            }
+        });
+
+        azureDataChannel.addEventListener('close', () => {
+            console.log('[renderer] Data channel closed');
+        });
+
+        // Handle ICE candidates
+        azureWebRTCConnection.addEventListener('icecandidate', event => {
+            if (event.candidate) {
+                console.log('[renderer] ICE candidate:', event.candidate);
+            }
+        });
+
+        // Handle connection state changes
+        azureWebRTCConnection.addEventListener('connectionstatechange', () => {
+            console.log('[renderer] WebRTC connection state:', azureWebRTCConnection.connectionState);
+        });
+
+        // Handle remote audio tracks
+        azureWebRTCConnection.addEventListener('track', event => {
+            console.log('[renderer] Remote track received:', event.track.kind);
+
+            if (event.track.kind === 'audio') {
+                const audioElement = document.createElement('audio');
+                audioElement.autoplay = true;
+                audioElement.srcObject = new MediaStream([event.track]);
+                document.body.appendChild(audioElement);
+
+                console.log('[renderer] Remote audio track set up');
+            }
+        });
+
+        // STEP 6: Generate WebRTC offer
+        console.log('[renderer] STEP 6: Generating WebRTC offer...');
+        const offer = await azureWebRTCConnection.createOffer();
+        console.log('[renderer] STEP 6: ✓ Offer created');
+
+        // STEP 7: Set local description
+        console.log('[renderer] STEP 7: Setting local description...');
+        await azureWebRTCConnection.setLocalDescription(offer);
+        console.log('[renderer] STEP 7: ✓ Local description set');
+
+        // STEP 8: Send SDP offer to Azure WebRTC service
+        console.log('[renderer] STEP 8: Sending SDP offer to Azure WebRTC service...');
+        const fullWebRTCUrl = `${config.webrtcUrl}?model=${config.deployment}`;
+        console.log('[renderer] WebRTC URL:', fullWebRTCUrl);
+
+        const sdpResponse = await fetch(fullWebRTCUrl, {
+            method: 'POST',
+            body: offer.sdp,
+            headers: {
+                'Authorization': `Bearer ${ephemeralData.client_secret?.value}`,
+                'Content-Type': 'application/sdp',
+            },
+        });
+
+        if (!sdpResponse.ok) {
+            const errorText = await sdpResponse.text();
+            throw new Error(`Azure WebRTC SDP response failed: HTTP ${sdpResponse.status} - ${errorText}`);
+        }
+
+        const answerSdp = await sdpResponse.text();
+        console.log('[renderer] STEP 8: ✓ Answer SDP received from Azure');
+        console.log('[renderer] Answer SDP length:', answerSdp.length);
+
+        // STEP 9: Set remote description and establish WebRTC connection
+        console.log('[renderer] STEP 9: Setting remote description...');
+        const answer = { type: 'answer', sdp: answerSdp };
+        await azureWebRTCConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        console.log('[renderer] STEP 9: ✓ Remote description set - WebRTC connection established');
+
+        // STEP 10: Wait for connection stabilization and send session update
+        console.log('[renderer] STEP 10: Waiting for WebRTC connection to stabilize...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log('[renderer] STEP 10: ✓ WebRTC connection stabilized');
+
+        // Now send Azure-compatible session update (v0.0.17 working structure per GitHub #466)
+        if (azureDataChannel && azureDataChannel.readyState === 'open') {
+            // Use the Azure-compatible session.update structure (v0.0.17 working version)
+            // Only include fields with values, no banned fields, minimal structure
+            const session = {};
+
+            // Azure-accepted fields only - conditionally added per v0.0.17 working pattern
+            if (config.deployment) session.model = config.deployment;
+            if (config.customPrompt) session.instructions = config.customPrompt;
+            session.tools = []; // Always include empty tools array (required)
+            session.tool_choice = 'none'; // Always include
+            session.voice = 'alloy'; // Always include
+            session.modalities = ['text', 'audio']; // Azure requires both, not audio-only
+
+            // NO banned fields: type, output_modalities, turn_detection, tracing
+            // NO experimental fields: input_audio_format, output_audio_format, temperature
+
+            const sessionUpdate = {
+                type: 'session.update',
+                session: session  // Use the minimal session object
+            };
+
+            azureDataChannel.send(JSON.stringify(sessionUpdate));
+            console.log('[renderer] Azure v0.0.17-compatible session update sent after WebRTC connection');
+        }
+
+        // Send success response back through IPC to main process
+        const initResponse = {
+            success: true,
+            sessionId: ephemeralData.id,
+            ephemeralKey: ephemeralData.client_secret?.value
+        };
+
+        ipcRenderer.send('azure-webrtc-initialized', initResponse);
+
+    } catch (error) {
+        console.error('[renderer] WebRTC initialization failed:', error);
+
+        // Send error response to main process
+        const errorResponse = {
+            success: false,
+            error: error.message
+        };
+
+        ipcRenderer.send('azure-webrtc-initialized', errorResponse);
+    }
+}
+
+function closeAzureWebRTC() {
+    if (azureDataChannel) {
+        azureDataChannel.close();
+        azureDataChannel = null;
+    }
+
+    if (azureWebRTCConnection) {
+        azureWebRTCConnection.close();
+        azureWebRTCConnection = null;
+    }
+}
+
+// IPC handlers for WebSocket commands
+console.log('[renderer] Registering Azure WebSocket IPC handlers...');
+
+// IPC handler for WebSocket initialization
+ipcRenderer.on('initialize-azure-websocket', (event, config) => {
+    console.log('[renderer] RECEIVED initialize-azure-websocket IPC message with config:', config);
+    initializeAzureWebSocket(config);
+});
+
+// IPC handler for sending text messages
+ipcRenderer.on('azure-websocket-send-text', (event, { text }) => {
+    console.log('[renderer] RECEIVED azure-websocket-send-text IPC message:', text.substring(0, 50) + '...');
+    if (azureWebSocket && azureWebSocket.readyState === WebSocket.OPEN) {
+        const messageEvent = {
+            type: 'conversation.item.create',
+            item: {
+                type: 'message',
+                role: 'user',
+                content: [{
+                    type: 'input_text',
+                    text: text
+                }]
+            }
+        };
+        azureWebSocket.send(JSON.stringify(messageEvent));
+
+        // Trigger response creation
+        const responseEvent = { type: 'response.create' };
+        azureWebSocket.send(JSON.stringify(responseEvent));
+        console.log('[renderer] Text message and response.create sent via WebSocket');
+    } else {
+        console.error('[renderer] WebSocket not open or available for sending text');
+    }
+});
+
+// IPC handler for sending audio messages
+ipcRenderer.on('azure-websocket-send-audio', (event, { audio }) => {
+    console.log('[renderer] RECEIVED azure-websocket-send-audio IPC message, audio length:', audio.length);
+    if (azureWebSocket && azureWebSocket.readyState === WebSocket.OPEN) {
+        // Send audio buffer append
+        const audioAppend = {
+            type: 'input_audio_buffer.append',
+            audio: audio
+        };
+        azureWebSocket.send(JSON.stringify(audioAppend));
+
+        // Commit audio buffer for turn detection
+        const commitEvent = { type: 'input_audio_buffer.commit' };
+        azureWebSocket.send(JSON.stringify(commitEvent));
+
+        // Trigger response creation
+        const responseEvent = { type: 'response.create' };
+        azureWebSocket.send(JSON.stringify(responseEvent));
+        console.log('[renderer] Audio message (append, commit, create) sent via WebSocket');
+    } else {
+        console.error('[renderer] WebSocket not open or available for sending audio');
+    }
+});
+
+// IPC handler for closing WebSocket connection
+ipcRenderer.on('azure-websocket-close', () => {
+    console.log('[renderer] RECEIVED azure-websocket-close IPC message');
+    closeAzureWebSocket();
+});
+
+console.log('[renderer] Azure WebSocket IPC handlers registered successfully');
+
+// Make WebRTC init function globally available
+window.initializeAzureWebRTC = initializeAzureWebRTC;
+
 // Create reference to the main app element
 const cheatingDaddyApp = document.querySelector('cheating-daddy-app');
 
@@ -764,9 +1330,12 @@ const cheddar = {
 
     // Core functionality
     initializeGemini,
+    initializeAzureRealtime,
     startCapture,
     stopCapture,
     sendTextMessage,
+    sendAzureTextMessage,
+    closeAzureSession,
     handleShortcut,
 
     // Conversation history functions

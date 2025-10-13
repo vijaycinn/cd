@@ -149,6 +149,7 @@ export class MainView extends LitElement {
         isInitializing: { type: Boolean },
         onLayoutModeChange: { type: Function },
         showApiKeyError: { type: Boolean },
+        llmService: { type: String },
     };
 
     constructor() {
@@ -158,6 +159,7 @@ export class MainView extends LitElement {
         this.isInitializing = false;
         this.onLayoutModeChange = () => {};
         this.showApiKeyError = false;
+        this.llmService = localStorage.getItem('llmService') || 'gemini';
         this.boundKeydownHandler = this.handleKeydown.bind(this);
     }
 
@@ -235,6 +237,13 @@ export class MainView extends LitElement {
         }, 1000);
     }
 
+    // Method to trigger Azure credential error (for Azure service)
+    triggerAzureCredentialError() {
+        // For Azure, we could show a different UI indication or just log it
+        console.log('Azure credentials are missing or invalid');
+        // You could add visual feedback here if needed
+    }
+
     getStartButtonText() {
         const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
@@ -281,25 +290,64 @@ export class MainView extends LitElement {
         }
     }
 
+    getApiKeyPlaceholder() {
+        switch (this.llmService) {
+            case 'azure':
+                return 'Azure OpenAI credentials configured in Advanced settings';
+            case 'gemini':
+            default:
+                return 'Enter your Gemini API Key';
+        }
+    }
+
+    getApiKeyStorageKey() {
+        switch (this.llmService) {
+            case 'azure':
+                return 'azureApiKey';
+            case 'gemini':
+            default:
+                return 'apiKey';
+        }
+    }
+
     render() {
+        const placeholder = this.getApiKeyPlaceholder();
+        const storageKey = this.getApiKeyStorageKey();
+        const currentValue = localStorage.getItem(storageKey) || '';
+        
+        // For Azure, we don't show the input field since credentials are in Advanced settings
+        const showInputField = this.llmService !== 'azure';
+
         return html`
             <div class="welcome">Welcome</div>
 
-            <div class="input-group">
-                <input
-                    type="password"
-                    placeholder="Enter your Gemini API Key"
-                    .value=${localStorage.getItem('apiKey') || ''}
-                    @input=${this.handleInput}
-                    class="${this.showApiKeyError ? 'api-key-error' : ''}"
-                />
-                <button @click=${this.handleStartClick} class="start-button ${this.isInitializing ? 'initializing' : ''}">
-                    ${this.getStartButtonText()}
-                </button>
-            </div>
+            ${showInputField ? html`
+                <div class="input-group">
+                    <input
+                        type="password"
+                        placeholder="${placeholder}"
+                        .value=${currentValue}
+                        @input=${this.handleInput}
+                        class="${this.showApiKeyError ? 'api-key-error' : ''}"
+                    />
+                    <button @click=${this.handleStartClick} class="start-button ${this.isInitializing ? 'initializing' : ''}">
+                        ${this.getStartButtonText()}
+                    </button>
+                </div>
+            ` : html`
+                <div class="input-group">
+                    <button @click=${this.handleStartClick} class="start-button ${this.isInitializing ? 'initializing' : ''}">
+                        ${this.getStartButtonText()}
+                    </button>
+                </div>
+            `}
             <p class="description">
-                dont have an api key?
-                <span @click=${this.handleAPIKeyHelpClick} class="link">get one here</span>
+                ${this.llmService === 'gemini' ? html`
+                    dont have an api key?
+                    <span @click=${this.handleAPIKeyHelpClick} class="link">get one here</span>
+                ` : this.llmService === 'azure' ? html`
+                    configure azure credentials in <span @click=${() => {}} class="link">advanced settings</span>
+                ` : ''}
             </p>
         `;
     }

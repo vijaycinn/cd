@@ -3,6 +3,8 @@ const { BrowserWindow, ipcMain } = require('electron');
 const { spawn } = require('child_process');
 const { saveDebugAudio } = require('../audioUtils');
 const { getSystemPrompt } = require('./prompts');
+const { AzureOpenAIService } = require('./azureOpenAI.js');
+const { AzureRealtimeWebSocketService } = require('./azureRealtimeWebSocket.js');
 
 // Conversation tracking variables
 let currentSessionId = null;
@@ -684,6 +686,8 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
             return { success: false, error: error.message };
         }
     });
+
+
 }
 
 module.exports = {

@@ -5,11 +5,14 @@ if (require('electron-squirrel-startup')) {
 const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const { createWindow, updateGlobalShortcuts } = require('./utils/window');
 const { setupGeminiIpcHandlers, stopMacOSAudioCapture, sendToRenderer } = require('./utils/gemini');
+const { AudioRouter } = require('./utils/audioRouter');
 const { initializeRandomProcessNames } = require('./utils/processRandomizer');
 const { applyAntiAnalysisMeasures } = require('./utils/stealthFeatures');
 const { getLocalConfig, writeConfig } = require('./config');
 
 const geminiSessionRef = { current: null };
+const azureServiceRef = { current: null };
+const audioRouter = new AudioRouter();
 let mainWindow = null;
 
 // Initialize random process names for stealth
@@ -25,6 +28,11 @@ app.whenReady().then(async () => {
     await applyAntiAnalysisMeasures();
 
     createMainWindow();
+
+    // Initialize audio routing service
+    audioRouter.setGeminiSessionRef(geminiSessionRef);
+    audioRouter.setAzureServiceRef(azureServiceRef);
+
     setupGeminiIpcHandlers(geminiSessionRef);
     setupGeneralIpcHandlers();
 });
@@ -153,6 +161,128 @@ function setupGeneralIpcHandlers() {
         } catch (error) {
             console.error('Error getting random display name:', error);
             return 'System Monitor';
+        }
+    });
+
+    // Azure Realtime IPC handlers
+    ipcMain.handle('initialize-azure-realtime', async (event, azureApiKey, azureEndpoint, azureDeployment, customPrompt, profile, language) => {
+        try {
+            console.log('[index.js] initialize-azure-realtime called with parameters - switching to WebSocket:', {
+                hasApiKey: !!azureApiKey,
+                hasEndpoint: !!azureEndpoint,
+                deployment: azureDeployment,
+                profile,
+                language
+            });
+
+            const { AzureRealtimeWebSocketService } = require('./utils/azureRealtimeWebSocket.js');
+
+            // Initialize conversation session for Azure (like Gemini does)
+            // initializeNewSession(); // Don't call this - it belongs to Gemini
+
+            // Create AzureRealtimeWebSocketService
+            const azureService = new AzureRealtimeWebSocketService(azureApiKey, azureEndpoint, azureDeployment, customPrompt, profile, language);
+
+            // Set up callbacks to send updates to renderer
+            azureService.setCallbacks({
+                onMessage: (response) => {
+                    console.log('[AzureRealtime] Callback - Response received, sending to renderer:', response ? response.substring(0, 100) + '...' : 'NO RESPONSE');
+                    const windows = BrowserWindow.getAllWindows();
+                    if (windows.length > 0) {
+                        windows[0].webContents.send('update-response', response);
+                    }
+                },
+                onError: (error) => {
+                    console.error('[AzureRealtime] Callback - Error:', error);
+                    const windows = BrowserWindow.getAllWindows();
+                    if (windows.length > 0) {
+                        windows[0].webContents.send('update-status', 'Error: ' + error.message);
+                    }
+                },
+                onStatus: (status) => {
+                    console.log('[AzureRealtime] Callback - Status:', status);
+                    const windows = BrowserWindow.getAllWindows();
+                    if (windows.length > 0) {
+                        windows[0].webContents.send('update-status', status);
+                    }
+                },
+                onTranscription: (transcription) => {
+                    console.log('[AzureRealtime] Callback - Transcription:', transcription);
+                },
+                onAudio: (audioData) => {
+                    console.log('[AzureRealtime] Callback - Audio received:', audioData?.length, 'bytes');
+                }
+            });
+
+            const success = await azureService.init();
+            if (success) {
+                azureServiceRef.current = azureService;
+                // Start Azure-specific audio routing
+                audioRouter.startRouting();
+                console.log('[index.js] Azure Realtime WebSocket service initialized successfully');
+                return true;
+            } else {
+                console.error('[index.js] Failed to initialize Azure Realtime WebSocket service');
+                return false;
+            }
+        } catch (error) {
+            console.error('[index.js] Error initializing Azure Realtime WebSocket service:', error);
+            return false;
+        }
+    });
+
+    ipcMain.handle('send-azure-text-message', async (event, text) => {
+        console.log('[index.js] send-azure-text-message called with text:', text.substring(0, 100) + '...');
+        if (!azureServiceRef.current) {
+            console.error('[index.js] No active Azure OpenAI session');
+            return { success: false, error: 'No active Azure OpenAI session' };
+        }
+
+        try {
+            if (!text || typeof text !== 'string' || text.trim().length === 0) {
+                console.log('[index.js] Invalid text message - empty or invalid');
+                return { success: false, error: 'Invalid text message' };
+            }
+
+            console.log('[index.js] Sending text message to Azure OpenAI service');
+            const response = await azureServiceRef.current.sendRealtimeInput({ text: text.trim() });
+            console.log('[index.js] Azure OpenAI service returned response:', response ? '***' : 'NO RESPONSE');
+
+            return { success: true, response };
+        } catch (error) {
+            console.error('[index.js] Error sending text to Azure OpenAI:', error);
+            console.error('[index.js] Error details:', {
+                message: error.message,
+                stack: error.stack,
+                name: error.name
+            });
+            const windows = BrowserWindow.getAllWindows();
+            if (windows.length > 0) {
+                windows[0].webContents.send('update-status', 'Error: ' + error.message);
+            }
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('close-azure-session', async event => {
+        console.log('[index.js] close-azure-session called');
+        try {
+            if (azureServiceRef.current) {
+                console.log('[index.js] Closing Azure session');
+                await azureServiceRef.current.close();
+                azureServiceRef.current = null;
+                console.log('[index.js] Azure session closed successfully');
+
+                // Stop Azure-specific audio routing and restore Gemini handlers
+                audioRouter.stopRouting();
+            } else {
+                console.log('[index.js] No Azure session to close');
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('[index.js] Error closing Azure session:', error);
+            return { success: false, error: error.message };
         }
     });
 }

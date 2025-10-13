@@ -110,6 +110,8 @@ export class CheatingDaddyApp extends LitElement {
         selectedImageQuality: { type: String },
         layoutMode: { type: String },
         advancedMode: { type: Boolean },
+        selectedProvider: { type: String },
+        llmService: { type: String },
         _viewInstances: { type: Object, state: true },
         _isClickThrough: { state: true },
         _awaitingNewResponse: { state: true },
@@ -128,7 +130,7 @@ export class CheatingDaddyApp extends LitElement {
         this.selectedScreenshotInterval = localStorage.getItem('selectedScreenshotInterval') || '5';
         this.selectedImageQuality = localStorage.getItem('selectedImageQuality') || 'medium';
         this.layoutMode = localStorage.getItem('layoutMode') || 'normal';
-        this.advancedMode = localStorage.getItem('advancedMode') === 'true';
+        this.advancedMode = localStorage.getItem('advancedMode') !== 'false'; // Enable by default unless explicitly disabled
         this.responses = [];
         this.currentResponseIndex = -1;
         this._viewInstances = new Map();
@@ -239,10 +241,15 @@ export class CheatingDaddyApp extends LitElement {
         } else if (this.currentView === 'assistant') {
             cheddar.stopCapture();
 
-            // Close the session
+            // Close the session based on the current provider
+            const llmService = localStorage.getItem('llmService') || 'gemini';
             if (window.require) {
                 const { ipcRenderer } = window.require('electron');
-                await ipcRenderer.invoke('close-session');
+                if (llmService === 'azure') {
+                    await ipcRenderer.invoke('close-azure-session');
+                } else {
+                    await ipcRenderer.invoke('close-session');
+                }
             }
             this.sessionActive = false;
             this.currentView = 'main';
@@ -265,9 +272,33 @@ export class CheatingDaddyApp extends LitElement {
 
     // Main view event handlers
     async handleStart() {
-        // check if api key is empty do nothing
-        const apiKey = localStorage.getItem('apiKey')?.trim();
+        console.log('[CheatingDaddyApp] handleStart called');
+        const llmService = localStorage.getItem('llmService') || 'gemini';
+        console.log(`[CheatingDaddyApp] llmService from localStorage: ${llmService}`);
+        let apiKey;
+
+        // PR84 PATTERN: Service-based key selection
+        if (llmService === 'gemini') {
+            console.log('[CheatingDaddyApp] Using Gemini service');
+            apiKey = localStorage.getItem('apiKey')?.trim();
+        } else if (llmService === 'azure') {
+            console.log('[CheatingDaddyApp] Using Azure service');
+            apiKey = localStorage.getItem('azureApiKey')?.trim();
+            // ADDED: Also validate endpoint for Azure
+            const endpoint = localStorage.getItem('azureEndpoint')?.trim();
+            console.log(`[CheatingDaddyApp] Azure credentials - apiKey: ${apiKey ? '***' : 'MISSING'}, endpoint: ${endpoint}`);
+            if (!apiKey || !endpoint) {
+                // Show error for missing Azure credentials
+                console.log('[CheatingDaddyApp] Missing Azure credentials, triggering error');
+                this.triggerAzureCredentialError();
+                return;
+            }
+        } else {
+            console.log(`[CheatingDaddyApp] Unknown service: ${llmService}`);
+        }
+
         if (!apiKey || apiKey === '') {
+            console.log('[CheatingDaddyApp] No API key found, triggering API key error');
             // Trigger the red blink animation on the API key input
             const mainView = this.shadowRoot.querySelector('main-view');
             if (mainView && mainView.triggerApiKeyError) {
@@ -276,13 +307,25 @@ export class CheatingDaddyApp extends LitElement {
             return;
         }
 
-        await cheddar.initializeGemini(this.selectedProfile, this.selectedLanguage);
+        // PR84 PATTERN: Service-specific initialization calls
+        if (llmService === 'gemini') {
+            console.log('[CheatingDaddyApp] Initializing Gemini service');
+            await cheddar.initializeGemini(this.selectedProfile, this.selectedLanguage);
+        } else if (llmService === 'azure') {
+            const azureEndpoint = localStorage.getItem('azureEndpoint');
+            const azureDeployment = localStorage.getItem('azureDeployment') || 'gpt-realtime';
+            console.log(`[CheatingDaddyApp] Initializing Azure service - endpoint: ${azureEndpoint}, deployment: ${azureDeployment}`);
+            await cheddar.initializeAzureRealtime(this.selectedProfile, this.selectedLanguage, azureEndpoint, azureDeployment);
+        }
+
         // Pass the screenshot interval as string (including 'manual' option)
+        console.log('[CheatingDaddyApp] Starting capture');
         cheddar.startCapture(this.selectedScreenshotInterval, this.selectedImageQuality);
         this.responses = [];
         this.currentResponseIndex = -1;
         this.startTime = Date.now();
         this.currentView = 'assistant';
+        console.log('[CheatingDaddyApp] handleStart completed, switching to assistant view');
     }
 
     async handleAPIKeyHelp() {
@@ -330,7 +373,26 @@ export class CheatingDaddyApp extends LitElement {
 
     // Assistant view event handlers
     async handleSendText(message) {
-        const result = await window.cheddar.sendTextMessage(message);
+        console.log('[CheatingDaddyApp] handleSendText called with message:', message.substring(0, 100) + '...');
+        const llmService = localStorage.getItem('llmService') || 'gemini';
+        console.log('[CheatingDaddyApp] Using llmService:', llmService);
+
+        let result;
+
+        if (llmService === 'azure') {
+            // Route to Azure text handler
+            console.log('[CheatingDaddyApp] Routing text to Azure handler');
+            if (window.require) {
+                const { ipcRenderer } = window.require('electron');
+                result = await ipcRenderer.invoke('send-azure-text-message', message);
+            } else {
+                result = { success: false, error: 'Electron not available' };
+            }
+        } else {
+            // Default to Gemini
+            console.log('[CheatingDaddyApp] Routing text to Gemini handler');
+            result = await window.cheddar.sendTextMessage(message);
+        }
 
         if (!result.success) {
             console.error('Failed to send message:', result.error);
@@ -350,6 +412,14 @@ export class CheatingDaddyApp extends LitElement {
     // Onboarding event handlers
     handleOnboardingComplete() {
         this.currentView = 'main';
+    }
+
+    // ADD NEW METHOD (Azure-specific validation)
+    triggerAzureCredentialError() {
+        const mainView = this.shadowRoot.querySelector('main-view');
+        if (mainView && mainView.triggerAzureCredentialError) {
+            mainView.triggerAzureCredentialError();
+        }
     }
 
     updated(changedProperties) {
@@ -407,6 +477,7 @@ export class CheatingDaddyApp extends LitElement {
                         .onStart=${() => this.handleStart()}
                         .onAPIKeyHelp=${() => this.handleAPIKeyHelp()}
                         .onLayoutModeChange=${layoutMode => this.handleLayoutModeChange(layoutMode)}
+                        .llmService=${localStorage.getItem('llmService') || 'gemini'}
                     ></main-view>
                 `;
 

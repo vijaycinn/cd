@@ -1,8 +1,8 @@
 {
-    "name": "cheating-daddy",
-    "productName": "cheating-daddy",
+    "name": "sound-board",
+    "productName": "Sound Board",
     "version": "0.4.0",
-    "description": "cheating daddy",
+    "description": "Sound Board real-time assistant",
     "main": "src/index.js",
     "scripts": {
         "start": "electron-forge start",
@@ -13,15 +13,15 @@
         "test": "vitest run"
     },
     "keywords": [
-        "cheating daddy",
-        "cheating daddy ai",
-        "cheating daddy ai assistant",
-        "cheating daddy ai assistant for interviews",
-        "cheating daddy ai assistant for interviews"
+    "sound board",
+    "sound board ai",
+    "sound board assistant",
+    "sound board transcription",
+    "sound board realtime ai"
     ],
     "author": {
-        "name": "sohzm",
-        "email": "sohambharambe9@gmail.com"
+        "name": "VC",
+        "email": "thinkcodellc@gmail.com"
     },
     "license": "GPL-3.0",
     "dependencies": {

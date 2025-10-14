@@ -8,7 +8,7 @@
 - `src/utils/azureRealtimeWebSocket.js` - New WebSocket-based AzureRealtimeWebSocketService class
 - `src/utils/renderer.js` - WebSocket implementation in browser context
 - `src/utils/gemini.js` - Updated IPC handlers for WebSocket commands
-- `src/components/app/CheatingDaddyApp.js` - Main app logic for WebSocket initialization
+- `src/components/app/SoundBoardApp.js` - Main app logic for WebSocket initialization
 - `src/components/views/AdvancedView.js` - UI for Azure WebSocket provider selection
 
 ### WebSocket Implementation Implementation Notes

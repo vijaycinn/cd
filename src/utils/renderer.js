@@ -1320,21 +1320,21 @@ console.log('[renderer] Azure WebSocket IPC handlers registered successfully');
 window.initializeAzureWebRTC = initializeAzureWebRTC;
 
 // Create reference to the main app element
-const cheatingDaddyApp = document.querySelector('cheating-daddy-app');
+const soundBoardApp = document.querySelector('sound-board-app');
 
 // Consolidated cheddar object - all functions in one place
 const cheddar = {
     // Element access
-    element: () => cheatingDaddyApp,
-    e: () => cheatingDaddyApp,
+    element: () => soundBoardApp,
+    e: () => soundBoardApp,
 
     // App state functions - access properties directly from the app element
-    getCurrentView: () => cheatingDaddyApp.currentView,
-    getLayoutMode: () => cheatingDaddyApp.layoutMode,
+    getCurrentView: () => soundBoardApp.currentView,
+    getLayoutMode: () => soundBoardApp.layoutMode,
 
     // Status and response functions
-    setStatus: text => cheatingDaddyApp.setStatus(text),
-    setResponse: response => cheatingDaddyApp.setResponse(response),
+    setStatus: text => soundBoardApp.setStatus(text),
+    setResponse: response => soundBoardApp.setResponse(response),
 
     // Core functionality
     initializeGemini,

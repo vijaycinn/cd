@@ -13,6 +13,9 @@ Implement Azure OpenAI integration following PR84's EXACT successful patterns - 
 
 ## **📋 PR84 SUCCESSFUL PATTERNS REFERENCE**
 
+> [!IMPORTANT]
+> October 2025: The project now uses the realtime WebSocket service (`src/utils/azureRealtimeWebSocket.js`) instead of the legacy `AzureOpenAIService` REST client. References below are preserved for historical context when mirroring PR84.
+
 ### **0. PR84 Code Changes Summary** (MUST BE FOLLOWED EXACTLY)
 
 PR84 Added OpenAI support by modifying 7 files exactly as follows:

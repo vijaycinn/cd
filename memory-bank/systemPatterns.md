@@ -1,6 +1,6 @@
 # System Patterns
 
-## Cheating Daddy - AI Interview Assistant
+## Sound Board - AI Interview Assistant
 
 **Version:** 0.4.0
 **Last Updated:** September 29, 2025
@@ -16,7 +16,7 @@ The application follows a client-server architecture pattern within a desktop ap
 │  │ Audio/Gemini │◄──────────►│     Renderer Process       │ │
 │  │   Service    │           │                            │ │
 │  └─────────────┘           │  ┌────────────────────────┐  │ │
-│                            │  │    CheatingDaddyApp    │  │ │
+│                            │  │    SoundBoardApp      │  │ │
 │                            │  │   (Main Application)   │  │ │
 │                            │  └────────────────────────┘  │ │
 │                            │              │                │ │
@@ -30,7 +30,7 @@ The application follows a client-server architecture pattern within a desktop ap
 │                            │              ▼                │ │
 │                            │  ┌────────────────────────┐  │ │
 │                            │  │      LLM Services      │  │ │
-│                            │  │  (Gemini, AzureOpenAI) │  │ │
+│                            │  │  (Gemini, AzureRealtime)│ │ │
 │                            │  └────────────────────────┘  │ │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -52,7 +52,7 @@ class LLMService {
 }
 
 // Concrete implementations
-class AzureOpenAIService extends LLMService { /* ... */ }
+class AzureRealtimeWebSocketService extends LLMService { /* ... */ }
 class GoogleGeminiService { /* ... */ } // (existing implementation)
 ```
 
@@ -136,21 +136,20 @@ getDisplayMedia() → Hidden Video Element → Canvas Drawing → JPEG Compressi
 
 ## Integration Patterns
 
-### Azure OpenAI Integration Pattern
-Following PR84 successful patterns exactly:
+### Azure Realtime Integration Pattern
+The legacy REST client has been replaced with a WebSocket implementation:
 
-1. **Service Configuration**:
+1. **Connection Setup**:
 ```javascript
-this.openai = new OpenAI({
-    apiKey: apiKey,
-    baseURL: `${endpoint}/openai/deployments/${deployment}`,
-    defaultHeaders: { 'api-key': apiKey }
+this.websocketUrl = `wss://${websocketHost}/openai/realtime?api-version=2025-04-01-preview`;
+this.socket = new WebSocket(this.websocketUrl, 'realtime', {
+    headers: { 'api-key': this.apiKey }
 });
 ```
 
-2. **Authentication**: Uses `api-key` header for Azure authentication
-3. **Model Reference**: Uses deployment name instead of model name
-4. **Error Handling**: Consistent with existing Gemini implementation
+2. **Session Configuration**: Send a `session.update` payload specifying deployment, audio formats, and system instructions once the socket opens.
+3. **Streaming Responses**: Listen for `response.text.delta`, `response.audio.delta`, and transcription events to push updates into the UI.
+4. **Error Handling**: Retry on transient socket failures and surface detailed status updates via renderer IPC.
 
 ### Provider Switching Pattern
 ```javascript
@@ -169,7 +168,7 @@ if (llmService === 'gemini') {
 User selects Azure → Save credentials → Start session → Initialize service → Begin capture
        │              │                   │              │              │
        ▼              ▼                   ▼              ▼              ▼
-  AdvancedView   localStorage      CheatingDaddyApp   Renderer.js    Main Process
+    AdvancedView   localStorage      SoundBoardApp     Renderer.js    Main Process
   handleInputChange                 handleStart        initializeAzureRealtime
 ```
 
@@ -288,7 +287,7 @@ src/
 │   └── views/          # View-specific components
 ├── utils/              # Utility functions and services
 │   ├── llm.js          # Base LLM service class
-│   ├── azureOpenAI.js  # Azure OpenAI service
+│   ├── azureRealtimeWebSocket.js  # Azure realtime WebSocket service
 │   ├── gemini.js       # Gemini service and IPC handlers
 │   └── renderer.js     # Renderer process utilities
 └── assets/             # Static assets

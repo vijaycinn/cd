@@ -1,6 +1,6 @@
 # Active Context
 
-## Cheating Daddy - AI Interview Assistant
+## Sound Board - AI Interview Assistant
 
 **Version:** 0.4.0
 **Last Updated:** September 29, 2025
@@ -40,10 +40,10 @@
 
 ### Implementation Status
 - ✅ Base LLMService class exists and is correct
-- ✅ AzureOpenAIService class implemented with enhanced logging
+- ✅ Realtime WebSocket service stabilized for Azure integration
 - ✅ IPC handlers registered with detailed logging
 - ✅ UI fields added to AdvancedView.js
-- ✅ Main app logic updated in CheatingDaddyApp.js
+- ✅ Main app logic updated in SoundBoardApp.js
 - ✅ Renderer functions implemented with response handling
 - ✅ openai dependency already present in package.json
 
@@ -59,10 +59,10 @@
 ## Current Implementation State
 
 ### Completed Components
-- [x] AzureOpenAIService class with enhanced logging (`src/utils/azureOpenAI.js`)
+- [x] Azure realtime WebSocket service (`src/utils/azureRealtimeWebSocket.js`)
 - [x] IPC handler registration with detailed logging (`src/utils/gemini.js`)
 - [x] UI integration (`src/components/views/AdvancedView.js`)
-- [x] Main app logic (`src/components/app/CheatingDaddyApp.js`)
+- [x] Main app logic (`src/components/app/SoundBoardApp.js`)
 - [x] Renderer functions with response handling (`src/utils/renderer.js`)
 - [x] Dependency management (`package.json`)
 
@@ -99,7 +99,7 @@
 ## Recent Changes and Updates
 
 ### Fixes Implemented
-- **Enhanced AzureOpenAI.js**: Added detailed logging for token usage and response content
+- **Deprecated AzureOpenAI.js**: Removed legacy REST client after migrating fully to realtime WebSocket flow
 - **Enhanced gemini.js**: Added comprehensive logging for IPC communication and response handling
 - **Fixed Response Flow**: Ensured responses properly propagate from Azure service to UI
 - **Azure realtime VAD guardrails**: Implemented silence gating, pending-commit tracking, and metrics logging inside `src/utils/azureRealtimeWebSocket.js`

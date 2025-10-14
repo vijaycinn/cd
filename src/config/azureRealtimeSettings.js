@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const CONFIG_DIR_NAME = 'cheating-daddy-config';
+const CONFIG_DIR_NAME = 'sound-board-config';
 const SETTINGS_FILENAME = 'azure-realtime-settings.json';
 
 function stripCommentKeys(value) {

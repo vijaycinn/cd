@@ -8,7 +8,7 @@ import { AssistantView } from '../views/AssistantView.js';
 import { OnboardingView } from '../views/OnboardingView.js';
 import { AdvancedView } from '../views/AdvancedView.js';
 
-export class CheatingDaddyApp extends LitElement {
+export class SoundBoardApp extends LitElement {
     static styles = css`
         * {
             box-sizing: border-box;
@@ -272,34 +272,34 @@ export class CheatingDaddyApp extends LitElement {
 
     // Main view event handlers
     async handleStart() {
-        console.log('[CheatingDaddyApp] handleStart called');
+        console.log('[SoundBoardApp] handleStart called');
         const llmService = localStorage.getItem('llmService') || 'gemini';
-        console.log(`[CheatingDaddyApp] llmService from localStorage: ${llmService}`);
+        console.log(`[SoundBoardApp] llmService from localStorage: ${llmService}`);
         let apiKey;
 
         // PR84 PATTERN: Service-based key selection
         if (llmService === 'gemini') {
-            console.log('[CheatingDaddyApp] Using Gemini service');
+            console.log('[SoundBoardApp] Using Gemini service');
             apiKey = localStorage.getItem('apiKey')?.trim();
         } else if (llmService === 'azure') {
-            console.log('[CheatingDaddyApp] Using Azure service');
+            console.log('[SoundBoardApp] Using Azure service');
             apiKey = localStorage.getItem('azureApiKey')?.trim();
             // ADDED: Also validate endpoint for Azure
             const endpoint = localStorage.getItem('azureEndpoint')?.trim();
             const region = (localStorage.getItem('azureRegion') || 'eastus2')?.trim();
-            console.log(`[CheatingDaddyApp] Azure credentials - apiKey: ${apiKey ? '***' : 'MISSING'}, endpoint: ${endpoint}, region: ${region}`);
+            console.log(`[SoundBoardApp] Azure credentials - apiKey: ${apiKey ? '***' : 'MISSING'}, endpoint: ${endpoint}, region: ${region}`);
             if (!apiKey || !endpoint || !region) {
                 // Show error for missing Azure credentials
-                console.log('[CheatingDaddyApp] Missing Azure credentials, triggering error');
+                console.log('[SoundBoardApp] Missing Azure credentials, triggering error');
                 this.triggerAzureCredentialError();
                 return;
             }
         } else {
-            console.log(`[CheatingDaddyApp] Unknown service: ${llmService}`);
+            console.log(`[SoundBoardApp] Unknown service: ${llmService}`);
         }
 
         if (!apiKey || apiKey === '') {
-            console.log('[CheatingDaddyApp] No API key found, triggering API key error');
+            console.log('[SoundBoardApp] No API key found, triggering API key error');
             // Trigger the red blink animation on the API key input
             const mainView = this.shadowRoot.querySelector('main-view');
             if (mainView && mainView.triggerApiKeyError) {
@@ -310,24 +310,24 @@ export class CheatingDaddyApp extends LitElement {
 
         // PR84 PATTERN: Service-specific initialization calls
         if (llmService === 'gemini') {
-            console.log('[CheatingDaddyApp] Initializing Gemini service');
+            console.log('[SoundBoardApp] Initializing Gemini service');
             await cheddar.initializeGemini(this.selectedProfile, this.selectedLanguage);
         } else if (llmService === 'azure') {
             const azureEndpoint = localStorage.getItem('azureEndpoint');
             const azureDeployment = localStorage.getItem('azureDeployment') || 'gpt-realtime';
             const azureRegion = (localStorage.getItem('azureRegion') || 'eastus2');
-            console.log(`[CheatingDaddyApp] Initializing Azure service - endpoint: ${azureEndpoint}, region: ${azureRegion}, deployment: ${azureDeployment}`);
+            console.log(`[SoundBoardApp] Initializing Azure service - endpoint: ${azureEndpoint}, region: ${azureRegion}, deployment: ${azureDeployment}`);
             await cheddar.initializeAzureRealtime(this.selectedProfile, this.selectedLanguage, azureEndpoint, azureDeployment);
         }
 
         // Pass the screenshot interval as string (including 'manual' option)
-        console.log('[CheatingDaddyApp] Starting capture');
+        console.log('[SoundBoardApp] Starting capture');
         cheddar.startCapture(this.selectedScreenshotInterval, this.selectedImageQuality);
         this.responses = [];
         this.currentResponseIndex = -1;
         this.startTime = Date.now();
         this.currentView = 'assistant';
-        console.log('[CheatingDaddyApp] handleStart completed, switching to assistant view');
+        console.log('[SoundBoardApp] handleStart completed, switching to assistant view');
     }
 
     async handleAPIKeyHelp() {
@@ -375,15 +375,15 @@ export class CheatingDaddyApp extends LitElement {
 
     // Assistant view event handlers
     async handleSendText(message) {
-        console.log('[CheatingDaddyApp] handleSendText called with message:', message.substring(0, 100) + '...');
+        console.log('[SoundBoardApp] handleSendText called with message:', message.substring(0, 100) + '...');
         const llmService = localStorage.getItem('llmService') || 'gemini';
-        console.log('[CheatingDaddyApp] Using llmService:', llmService);
+        console.log('[SoundBoardApp] Using llmService:', llmService);
 
         let result;
 
         if (llmService === 'azure') {
             // Route to Azure text handler
-            console.log('[CheatingDaddyApp] Routing text to Azure handler');
+            console.log('[SoundBoardApp] Routing text to Azure handler');
             if (window.require) {
                 const { ipcRenderer } = window.require('electron');
                 result = await ipcRenderer.invoke('send-azure-text-message', message);
@@ -392,7 +392,7 @@ export class CheatingDaddyApp extends LitElement {
             }
         } else {
             // Default to Gemini
-            console.log('[CheatingDaddyApp] Routing text to Gemini handler');
+            console.log('[SoundBoardApp] Routing text to Gemini handler');
             result = await window.cheddar.sendTextMessage(message);
         }
 
@@ -591,4 +591,4 @@ export class CheatingDaddyApp extends LitElement {
     }
 }
 
-customElements.define('cheating-daddy-app', CheatingDaddyApp);
+customElements.define('sound-board-app', SoundBoardApp);

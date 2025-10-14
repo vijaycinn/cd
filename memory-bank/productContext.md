@@ -1,6 +1,6 @@
 # Product Context
 
-## Cheating Daddy - AI Interview Assistant
+## Sound Board - AI Interview Assistant
 
 **Version:** 0.4.0
 **Last Updated:** September 29, 2025
@@ -15,7 +15,7 @@ Technical interviews are challenging and stressful for many developers. Candidat
 
 ## Solution Overview
 
-Cheating Daddy addresses these challenges by providing an AI-powered assistant that:
+Sound Board addresses these challenges by providing an AI-powered assistant that:
 - Listens to the interview conversation in real-time
 - Analyzes screen content to understand the context
 - Provides helpful, context-aware responses without being detected

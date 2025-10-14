@@ -1,6 +1,6 @@
 # Technical Context
 
-## Cheating Daddy - AI Interview Assistant
+## Sound Board - AI Interview Assistant
 
 **Version:** 0.4.0
 **Last Updated:** September 29, 2025
@@ -69,7 +69,7 @@
 - **Rendering**: Template literals with CSS-in-JS
 
 ### File Naming
-- **PascalCase**: Component files (`CheatingDaddyApp.js`)
+- **PascalCase**: Component files (`SoundBoardApp.js`)
 - **camelCase**: Utility files (`audioUtils.js`)
 - **kebab-case**: Configuration files (`forge.config.js`)
 

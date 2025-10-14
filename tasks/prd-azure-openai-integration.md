@@ -6,17 +6,17 @@
 
 ## Relevant Files & Test Strategy
 *This section will be updated during implementation.*
-- `src/utils/azureOpenAI.js` - Azure OpenAI service implementation (using openai package v5.9.2)
+- `src/utils/azureRealtimeWebSocket.js` - Azure realtime WebSocket service implementation
 - `src/utils/gemini.js` - IPC handlers for Azure initialization
 - `src/components/views/AdvancedView.js` - UI components for Azure configuration
-- `src/components/app/CheatingDaddyApp.js` - Main app logic for provider switching
+- `src/components/app/SoundBoardApp.js` - Main app logic for provider switching
 - `src/utils/renderer.js` - Renderer functions for Azure initialization
 
-### Azure OpenAI Implementation Notes
-- Uses the `openai` npm package (v5.9.2) with custom Azure configuration
-- Authentication via `api-key` header instead of Bearer token
-- Endpoint format: `{endpoint}/openai/deployments/{deployment}`
-- Deployment name used instead of model name
+### Azure Realtime Implementation Notes
+- Uses Azure's realtime WebSocket endpoint (`wss://{resource}.openai.azure.com/openai/realtime`)
+- Authentication via `api-key` header provided during WebSocket handshake
+- Sessions configured using `session.update` payload with deployment, modalities, and instructions
+- Streaming deltas delivered through `response.text.delta` and `response.audio.delta`
 
 ### Notes on Testing
 - Test provider switching functionality (Gemini ↔ Azure)
@@ -29,7 +29,7 @@
 ## Tasks
 
 - [ ] 1.0 Verify Current Implementation Completeness
-  - [ ] 1.1 Review AzureOpenAIService class implementation
+  - [ ] 1.1 Review Azure realtime service implementation
   - [ ] 1.2 Verify IPC handler parameter passing and return values
   - [ ] 1.3 Check UI component integration and localStorage handling
   - [ ] 1.4 Validate main app provider switching logic

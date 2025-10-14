@@ -25,7 +25,7 @@
 
 ## Configuration Steps
 
-1. Open the Cheating Daddy application
+1. Open the Sound Board application
 2. Go to Advanced Settings (click the gear icon)
 3. Select "Azure OpenAI" from the LLM Service dropdown
 4. Enter your Azure API Key

@@ -1,13 +1,13 @@
 # Project Overview
 
-## Cheating Daddy - AI Interview Assistant
+## Sound Board - AI Interview Assistant
 
 **Version:** 0.4.0
 **Last Updated:** September 29, 2025
 
 ## High-Level Vision
 
-Cheating Daddy is an AI-powered interview assistant application designed to provide real-time assistance during technical interviews and coding sessions. The application captures system audio, screenshots, and user interactions to provide contextual AI responses that help users navigate interview scenarios effectively.
+Sound Board is an AI-powered interview assistant application designed to provide real-time assistance during technical interviews and coding sessions. The application captures system audio, screenshots, and user interactions to provide contextual AI responses that help users navigate interview scenarios effectively.
 
 ## Core Mission
 

@@ -1,1008 +1,1003 @@
-Initializing random process names for stealth...
-Process name: corescannerexpress
-Display name: BackupGateway
-Window title: System Information
-Set process title to: corescannerexpress
-Applying anti-analysis measures...
-Set window title to: System Information
-Applying additional stealth measures...
-Hidden from Windows taskbar
-Content protection enabled
-Set random user agent
-Size update requested for view: main layout: normal
-Current window size: 1103 x 800
-Starting animated resize from 1103x800 to 900x600
-Updating global shortcuts with: {
-  moveUp: 'Ctrl+Up',
-  moveDown: 'Ctrl+Down',
-  moveLeft: 'Ctrl+Left',
-  moveRight: 'Ctrl+Right',
-  toggleVisibility: 'Ctrl+\\',
-  toggleClickThrough: 'Ctrl+M',
-  nextStep: 'Ctrl+Enter',
-  previousResponse: 'Ctrl+[',
-  nextResponse: 'Ctrl+]',
-  scrollUp: 'Ctrl+Shift+Up',
-  scrollDown: 'Ctrl+Shift+Down',
-  emergencyErase: 'Ctrl+Shift+E'
+[AzureRealtime] Callback - Audio received: 64000 bytes
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYelsrnWd5BktIZifL5',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: '\n',
+  obfuscation: null
 }
-Registered moveUp: Ctrl+Up
-Registered moveDown: Ctrl+Down
-Registered moveLeft: Ctrl+Left
-Registered moveRight: Ctrl+Right
-Registered toggleVisibility: Ctrl+\
-Registered toggleClickThrough: Ctrl+M
-Registered nextStep: Ctrl+Enter
-Registered previousResponse: Ctrl+[
-Registered nextResponse: Ctrl+]
-Registered scrollUp: Ctrl+Shift+Up
-Registered scrollDown: Ctrl+Shift+Down
-Registered emergencyErase: Ctrl+Shift+E
-Animation complete: 900x600
-[index.js] initialize-azure-realtime called with parameters - switching to WebSocket: {
-  hasApiKey: true,
-  hasEndpoint: true,
-  deployment: 'gpt-4o-mini-realtime-preview',
-  region: 'eastus2',
-  profile: 'sales',
-  language: 'en-US'
-}
-[AzureWebSocket] Initializing Azure OpenAI WebSocket Service (manual implementation)
-[AzureWebSocket] Extracted hostname from endpoint: smec-cloudai-poc-resource.services.ai.azure.com
-[AzureWebSocket] Manual WebSocket URL constructed (api key hidden)
-[AzureWebSocket] Initializing Azure WebSocket Realtime service (manual implementation)
-[AudioRouter] Audio mode set to: mic_only
-[AzureWebSocket] WebSocket connection opened!
-[AzureRealtime] Callback - Status: Connected
-[AzureWebSocket] Azure WebSocket Realtime service initialized successfully
-[AzureRealtime] Callback - Status: Connected
-[AudioRouter] Starting Azure-specific routing
-[AudioRouter] ipcMain.removeHandler available: true
-[index.js] Azure Realtime WebSocket service initialized successfully
-[AzureWebSocket] Dropping near-silent audio chunk (rms=0.00540)
-+++++++++.[AzureRealtime] Callback - Status: Listening...
-[AzureWebSocket] WebSocket error: {
-  type: 'invalid_request_error',
-  code: 'invalid_type',
-  message: "Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.",
-  param: 'item.content[0].audio',
-  event_id: null
-}
-[AzureRealtime] Callback - Error: Error: Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.
-    at AzureRealtimeWebSocketService.handleWebSocketMessage (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:522:44)
-    at WebSocket.<anonymous> (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:133:30)
-    at WebSocket.emit (node:events:519:28)
-    at Receiver.receiverOnMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\websocket.js:1220:20)
-    at Receiver.emit (node:events:519:28)
-    at Receiver.dataMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:596:14)
-    at Receiver.getData (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:496:10)
-    at Receiver.startLoop (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:167:16)
-    at Receiver._write (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:94:10)
-    at writeOrBuffer (node:internal/streams/writable:570:12)
-[AzureRealtime] Callback - Transcription: Hey
-[AzureWebSocket] Unhandled WebSocket message type: response.output_item.added
-[AzureWebSocket] Unhandled WebSocket message type: response.content_part.added
-[AzureWebSocket] Partial response delta: Not
-[AzureWebSocket] Partial response delta:  sure
-[AzureWebSocket] Partial response delta:  what
-[AzureWebSocket] Partial response delta:  you
-[AzureWebSocket] Partial response delta:  need
-[AzureWebSocket] Partial response delta:  help
-[AzureWebSocket] Partial response delta:  with
-[AzureWebSocket] Partial response delta:  right
-[AzureWebSocket] Partial response delta:  now
-[AzureWebSocket] Partial response delta: .
-[AzureWebSocket] Unhandled WebSocket message type: response.text.done
-[AzureWebSocket] Unhandled WebSocket message type: response.output_item.done
-[AzureRealtime] Callback - Response received, sending to renderer: Not sure what you need help with right now....
-[AzureRealtime] Callback - Status: Ready
-[AzureWebSocket] Dropping near-silent audio chunk (rms=0.00010)
-+++++++++++[AzureWebSocket] WebSocket error: {
-  type: 'invalid_request_error',
-  code: 'invalid_type',
-  message: "Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.",
-  param: 'item.content[0].audio',
-  event_id: null
-}
-[AzureRealtime] Callback - Error: Error: Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.
-    at AzureRealtimeWebSocketService.handleWebSocketMessage (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:522:44)
-    at WebSocket.<anonymous> (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:133:30)
-    at WebSocket.emit (node:events:519:28)
-    at Receiver.receiverOnMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\websocket.js:1220:20)
-    at Receiver.emit (node:events:519:28)
-    at Receiver.dataMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:596:14)
-    at Receiver.getData (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:496:10)
-    at Receiver.startLoop (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:167:16)
-    at Receiver._write (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:94:10)
-    at writeOrBuffer (node:internal/streams/writable:570:12)
-++[AzureRealtime] Callback - Transcription: How do you?
-[AzureWebSocket] Unhandled WebSocket message type: response.output_item.added
-[AzureWebSocket] Unhandled WebSocket message type: response.content_part.added
-[AzureWebSocket] Partial response delta: Not
-[AzureWebSocket] Partial response delta:  sure
-[AzureWebSocket] Partial response delta:  what
-+[AzureWebSocket] Partial response delta:  you
-[AzureWebSocket] Partial response delta:  need
-[AzureWebSocket] Partial response delta:  help
-[AzureWebSocket] Partial response delta:  with
-[AzureWebSocket] Partial response delta:  right
-[AzureWebSocket] Partial response delta:  now
-[AzureWebSocket] Partial response delta: .
-[AzureWebSocket] Unhandled WebSocket message type: response.text.done
-[AzureWebSocket] Unhandled WebSocket message type: response.output_item.done
-[AzureRealtime] Callback - Response received, sending to renderer: Not sure what you need help with right now....
-[AzureRealtime] Callback - Status: Ready
-++++++[AzureWebSocket] WebSocket error: {
-  type: 'invalid_request_error',
-  code: 'invalid_type',
-  message: "Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.",
-  param: 'item.content[0].audio',
-  event_id: null
-}
-[AzureRealtime] Callback - Error: Error: Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.
-    at AzureRealtimeWebSocketService.handleWebSocketMessage (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:522:44)
-    at WebSocket.<anonymous> (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:133:30)
-    at WebSocket.emit (node:events:519:28)
-    at Receiver.receiverOnMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\websocket.js:1220:20)
-    at Receiver.emit (node:events:519:28)
-    at Receiver.dataMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:596:14)
-    at Receiver.getData (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:496:10)
-    at Receiver.startLoop (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:167:16)
-    at Receiver._write (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:94:10)
-    at writeOrBuffer (node:internal/streams/writable:570:12)
-++[AzureWebSocket] Dropping near-silent audio chunk (rms=0.00603)
-++[AzureWebSocket] Unhandled WebSocket message type: response.output_item.added
-[AzureWebSocket] Unhandled WebSocket message type: response.content_part.added
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta:  is
-[AzureWebSocket] Partial response delta:  a
-[AzureWebSocket] Partial response delta:  cloud
-[AzureWebSocket] Partial response delta:  computing
-[AzureWebSocket] Partial response delta:  service
-[AzureWebSocket] Partial response delta:  by
-[AzureWebSocket] Partial response delta:  Microsoft
-[AzureWebSocket] Partial response delta: .
+[AzureWebSocket] Partial response delta:
 
-
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYes1aCnDGCD6JHpeiC',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: '-',
+  obfuscation: null
+}
 [AzureWebSocket] Partial response delta: -
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYetASK5mOd0hEenycE',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' **',
+  obfuscation: null
+}
 [AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Cloud
-[AzureWebSocket] Partial response delta:  Services
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Offers
-[AzureWebSocket] Partial response delta:  computing
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  analytics
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  storage
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  networking
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:  
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Supports
-[AzureWebSocket] Partial response delta:  building
-+[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  testing
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  deploying
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  managing
-[AzureWebSocket] Partial response delta:  applications
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYe5hVdgUm8r4QuoU3m',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: 'Integration',
+  obfuscation: null
+}
 [AzureWebSocket] Partial response delta: Integration
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Works
-[AzureWebSocket] Partial response delta:  well
-[AzureWebSocket] Partial response delta:  with
-[AzureWebSocket] Partial response delta:  Microsoft
-[AzureWebSocket] Partial response delta:  software
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  other
-[AzureWebSocket] Partial response delta:  platforms
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Provides
-[AzureWebSocket] Partial response delta:  tools
-[AzureWebSocket] Partial response delta:  for
-[AzureWebSocket] Partial response delta:  AI
-[AzureWebSocket] Partial response delta: ,
-++[AzureWebSocket] Partial response delta:  Io
-[AzureWebSocket] Partial response delta: T
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  machine
-[AzureWebSocket] Partial response delta:  learning
-[AzureWebSocket] Partial response delta: .
-[AzureWebSocket] Partial response delta:  
-
-
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  is
-[AzureWebSocket] Partial response delta:  widely
-[AzureWebSocket] Partial response delta:  used
-[AzureWebSocket] Partial response delta:  for
-[AzureWebSocket] Partial response delta:  scalable
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  flexible
-[AzureWebSocket] Partial response delta:  cloud
-[AzureWebSocket] Partial response delta:  solutions
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  catering
-[AzureWebSocket] Partial response delta:  to
-[AzureWebSocket] Partial response delta:  both
-[AzureWebSocket] Partial response delta:  small
-[AzureWebSocket] Partial response delta:  startups
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  large
-+[AzureWebSocket] Partial response delta:  enterprises
-[AzureWebSocket] Partial response delta: .
-[AzureWebSocket] Unhandled WebSocket message type: response.text.done
-[AzureWebSocket] Unhandled WebSocket message type: response.output_item.done
-[AzureRealtime] Callback - Response received, sending to renderer: **Azure** is a cloud computing service by Microsoft.
-
-- **Cloud Services**: Offers computing, analyt...
-[AzureRealtime] Callback - Status: Ready
-[AzureWebSocket] Dropping near-silent audio chunk (rms=0.00018)
-+++[AzureWebSocket] WebSocket error: {
-  type: 'invalid_request_error',
-  code: 'invalid_type',
-  message: "Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.",
-  param: 'item.content[0].audio',
-  event_id: null
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeLaRJgAmQ8kPPZOWP',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: '**',
+  obfuscation: null
 }
-[AzureRealtime] Callback - Error: Error: Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.
-    at AzureRealtimeWebSocketService.handleWebSocketMessage (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:522:44)
-    at WebSocket.<anonymous> (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:133:30)
-    at WebSocket.emit (node:events:519:28)
-    at Receiver.receiverOnMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\websocket.js:1220:20)
-    at Receiver.emit (node:events:519:28)
-    at Receiver.dataMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:596:14)
-    at Receiver.getData (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:496:10)
-    at Receiver.startLoop (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:167:16)
-    at Receiver._write (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:94:10)
-    at writeOrBuffer (node:internal/streams/writable:570:12)
-+++[AzureRealtime] Callback - Transcription: cases.
-++[AzureWebSocket] Unhandled WebSocket message type: response.output_item.added
-[AzureWebSocket] Unhandled WebSocket message type: response.content_part.added
 [AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  services
-[AzureWebSocket] Partial response delta:  examples
-[AzureWebSocket] Partial response delta: **
-
-
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  Virtual
-[AzureWebSocket] Partial response delta:  Machines
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Provides
-[AzureWebSocket] Partial response delta:  scalable
-[AzureWebSocket] Partial response delta:  computing
-[AzureWebSocket] Partial response delta:  resources
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:  
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Users
-++[AzureWebSocket] Partial response delta:  can
-[AzureWebSocket] Partial response delta:  run
-[AzureWebSocket] Partial response delta:  applications
-[AzureWebSocket] Partial response delta:  on
-[AzureWebSocket] Partial response delta:  virtual
-[AzureWebSocket] Partial response delta: ized
-[AzureWebSocket] Partial response delta:  infrastructure
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  SQL
-[AzureWebSocket] Partial response delta:  Database
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Managed
-[AzureWebSocket] Partial response delta:  relational
-[AzureWebSocket] Partial response delta:  database
-[AzureWebSocket] Partial response delta:  service
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Offers
-[AzureWebSocket] Partial response delta:  high
-[AzureWebSocket] Partial response delta:  availability
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  automated
-+[AzureWebSocket] Partial response delta:  backups
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  Functions
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Server
-[AzureWebSocket] Partial response delta: less
-[AzureWebSocket] Partial response delta:  computing
-[AzureWebSocket] Partial response delta:  service
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Executes
-[AzureWebSocket] Partial response delta:  code
-[AzureWebSocket] Partial response delta:  in
-[AzureWebSocket] Partial response delta:  response
-[AzureWebSocket] Partial response delta:  to
-[AzureWebSocket] Partial response delta:  events
-[AzureWebSocket] Partial response delta:  without
-[AzureWebSocket] Partial response delta:  managing
-[AzureWebSocket] Partial response delta:  servers
-[AzureWebSocket] Partial response delta: .
-[AzureWebSocket] Partial response delta:
-
-
-[AzureWebSocket] Partial response delta: These
-+[AzureWebSocket] Partial response delta:  services
-[AzureWebSocket] Partial response delta:  help
-[AzureWebSocket] Partial response delta:  in
-[AzureWebSocket] Partial response delta:  building
-[AzureWebSocket] Partial response delta:  scalable
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  reliable
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  efficient
-[AzureWebSocket] Partial response delta:  cloud
-[AzureWebSocket] WebSocket error: {
-  type: 'invalid_request_error',
-  code: 'invalid_type',
-  message: "Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.",
-  param: 'item.content[0].audio',
-  event_id: null
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeI9Hid6YlYguT7WJh',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ':',
+  obfuscation: null
 }
-[AzureRealtime] Callback - Error: Error: Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.
-    at AzureRealtimeWebSocketService.handleWebSocketMessage (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:522:44)
-    at WebSocket.<anonymous> (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:133:30)
-    at WebSocket.emit (node:events:519:28)
-    at Receiver.receiverOnMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\websocket.js:1220:20)
-    at Receiver.emit (node:events:519:28)
-    at Receiver.dataMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:596:14)
-    at Receiver.getData (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:496:10)
-    at Receiver.startLoop (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:167:16)
-    at Receiver._write (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:94:10)
-    at writeOrBuffer (node:internal/streams/writable:570:12)
-[AzureWebSocket] Partial response delta: -based
-[AzureWebSocket] Partial response delta:  solutions
-[AzureWebSocket] Partial response delta: .
-[AzureWebSocket] Unhandled WebSocket message type: response.text.done
-[AzureWebSocket] Unhandled WebSocket message type: response.output_item.done
-[AzureRealtime] Callback - Response received, sending to renderer: **Azure services examples**
-
-- **Azure Virtual Machines**: Provides scalable computing resources.
-  ...
-[AzureRealtime] Callback - Status: Ready
-++[AzureRealtime] Callback - Transcription: use Azure.
-++[AzureWebSocket] Unhandled WebSocket message type: response.output_item.added
-[AzureWebSocket] Unhandled WebSocket message type: response.content_part.added
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: Benefits
-[AzureWebSocket] Partial response delta:  of
-[AzureWebSocket] Partial response delta:  using
+[AzureWebSocket] Partial response delta: :
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeF9SzigBHK6xO59xo',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' With',
+  obfuscation: null
+}
+[AzureWebSocket] Partial response delta:  With
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYemZpseyhEYXnzMfHg',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' Azure',
+  obfuscation: null
+}
 [AzureWebSocket] Partial response delta:  Azure
-[AzureWebSocket] Partial response delta: **
-
-
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Sc
-[AzureWebSocket] Partial response delta: al
-[AzureWebSocket] Partial response delta: ability
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Easily
-[AzureWebSocket] Partial response delta:  scale
-[AzureWebSocket] Partial response delta:  resources
-[AzureWebSocket] Partial response delta:  up
-[AzureWebSocket] Partial response delta:  or
-[AzureWebSocket] Partial response delta:  down
-[AzureWebSocket] Partial response delta:  based
-[AzureWebSocket] Partial response delta:  on
-[AzureWebSocket] Partial response delta:  demand
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:  
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Adjust
-+[AzureWebSocket] Partial response delta:  compute
-[AzureWebSocket] Partial response delta:  power
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  storage
-[AzureWebSocket] Partial response delta:  to
-[AzureWebSocket] Partial response delta:  match
-[AzureWebSocket] Partial response delta:  workload
-[AzureWebSocket] Partial response delta:  fluctuations
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Com
-[AzureWebSocket] Partial response delta: prehensive
-[AzureWebSocket] Partial response delta:  tools
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Access
-[AzureWebSocket] Partial response delta:  a
-[AzureWebSocket] Partial response delta:  wide
-[AzureWebSocket] Partial response delta:  range
-[AzureWebSocket] Partial response delta:  of
-[AzureWebSocket] Partial response delta:  services
-[AzureWebSocket] Partial response delta:  including
-[AzureWebSocket] Partial response delta:  AI
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  Io
-[AzureWebSocket] Partial response delta: T
-[AzureWebSocket] Partial response delta: ,
-+[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  analytics
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:  
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Integr
-[AzureWebSocket] Partial response delta: ate
-[AzureWebSocket] Partial response delta:  advanced
-[AzureWebSocket] Partial response delta:  capabilities
-[AzureWebSocket] Partial response delta:  seamlessly
-[AzureWebSocket] Partial response delta:  into
-[AzureWebSocket] Partial response delta:  applications
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Cost
-[AzureWebSocket] Partial response delta:  management
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Pay
-[AzureWebSocket] Partial response delta: -as
-[AzureWebSocket] Partial response delta: -you
-[AzureWebSocket] Partial response delta: -go
-[AzureWebSocket] Partial response delta:  pricing
-[AzureWebSocket] Partial response delta:  helps
-[AzureWebSocket] Partial response delta:  optimize
-[AzureWebSocket] Partial response delta:  costs
-+[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:  
-[AzureWebSocket] Partial response delta:  -
+--[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeQEGTm6qPXOWGobnx',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' Monitor',
+  obfuscation: null
+}
 [AzureWebSocket] Partial response delta:  Monitor
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  control
-[AzureWebSocket] Partial response delta:  expenditures
-[AzureWebSocket] Partial response delta:  with
-[AzureWebSocket] Partial response delta:  built
-[AzureWebSocket] Partial response delta: -in
-[AzureWebSocket] Partial response delta:  management
-[AzureWebSocket] Partial response delta:  tools
-[AzureWebSocket] Partial response delta: .
-[AzureWebSocket] Partial response delta:
-
-
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  enhances
-[AzureWebSocket] Partial response delta:  flexibility
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  efficiency
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  cost
-[AzureWebSocket] Partial response delta: -effect
-[AzureWebSocket] Partial response delta: iveness
-[AzureWebSocket] Partial response delta:  in
-[AzureWebSocket] Partial response delta:  cloud
-[AzureWebSocket] Partial response delta:  operations
-[AzureWebSocket] Partial response delta: .
-++[AzureWebSocket] Unhandled WebSocket message type: response.text.done
-[AzureWebSocket] Unhandled WebSocket message type: response.output_item.done
-[AzureRealtime] Callback - Response received, sending to renderer: **Benefits of using Azure**
-
-- **Scalability**: Easily scale resources up or down based on demand.
- ...
-[AzureRealtime] Callback - Status: Ready
-[AzureWebSocket] Dropping near-silent audio chunk (rms=0.00009)
-+[AzureWebSocket] WebSocket error: {
-  type: 'invalid_request_error',
-  code: 'invalid_type',
-  message: "Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.",
-  param: 'item.content[0].audio',
-  event_id: null
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeUYrgLWnIAvAJgPr1',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ',',
+  obfuscation: null
 }
-[AzureRealtime] Callback - Error: Error: Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.
-    at AzureRealtimeWebSocketService.handleWebSocketMessage (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:522:44)
-    at WebSocket.<anonymous> (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:133:30)
-    at WebSocket.emit (node:events:519:28)
-    at Receiver.receiverOnMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\websocket.js:1220:20)
-    at Receiver.emit (node:events:519:28)
-    at Receiver.dataMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:596:14)
-    at Receiver.getData (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:496:10)
-    at Receiver.startLoop (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:167:16)
-    at Receiver._write (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:94:10)
-    at writeOrBuffer (node:internal/streams/writable:570:12)
-+++[AzureRealtime] Callback - Transcription: combinations of
-+[AzureWebSocket] Unhandled WebSocket message type: response.output_item.added
-[AzureWebSocket] Unhandled WebSocket message type: response.content_part.added
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  service
-[AzureWebSocket] Partial response delta:  combinations
-[AzureWebSocket] Partial response delta: **
-
-
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  Kubernetes
-[AzureWebSocket] Partial response delta:  Service
-[AzureWebSocket] Partial response delta:  (
-[AzureWebSocket] Partial response delta: AK
-[AzureWebSocket] Partial response delta: S
-[AzureWebSocket] Partial response delta: )
-[AzureWebSocket] Partial response delta:  +
-[AzureWebSocket] Partial response delta:  Azure
-[AzureWebSocket] Partial response delta:  Dev
-[AzureWebSocket] Partial response delta: Ops
-[AzureWebSocket] Partial response delta: **
-+[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Stream
-[AzureWebSocket] Partial response delta: lined
-[AzureWebSocket] Partial response delta:  application
-[AzureWebSocket] Partial response delta:  deployment
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  management
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:  
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  AK
-[AzureWebSocket] Partial response delta: S
-[AzureWebSocket] Partial response delta:  handles
-[AzureWebSocket] Partial response delta:  container
-[AzureWebSocket] Partial response delta:  orches
-[AzureWebSocket] Partial response delta: tration
 [AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  Azure
-[AzureWebSocket] Partial response delta:  Dev
-[AzureWebSocket] Partial response delta: Ops
-[AzureWebSocket] Partial response delta:  autom
-[AzureWebSocket] Partial response delta: ates
-[AzureWebSocket] Partial response delta:  CI
-[AzureWebSocket] Partial response delta: /CD
-[AzureWebSocket] Partial response delta:  pipelines
-[AzureWebSocket] Partial response delta: .
-
-+[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  Functions
-[AzureWebSocket] Partial response delta:  +
-[AzureWebSocket] Partial response delta:  Azure
-[AzureWebSocket] Partial response delta:  Event
-[AzureWebSocket] Partial response delta:  Grid
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Reactive
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  server
-[AzureWebSocket] Partial response delta: less
-[AzureWebSocket] Partial response delta:  applications
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Azure
-[AzureWebSocket] Partial response delta:  Functions
-[AzureWebSocket] Partial response delta:  processes
-[AzureWebSocket] Partial response delta:  events
-[AzureWebSocket] Partial response delta:  triggered
-[AzureWebSocket] Partial response delta:  by
-[AzureWebSocket] Partial response delta:  Event
-[AzureWebSocket] Partial response delta:  Grid
-[AzureWebSocket] Partial response delta:  for
-++[AzureWebSocket] Partial response delta:  real
-[AzureWebSocket] Partial response delta: -time
-[AzureWebSocket] Partial response delta:  responses
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  SQL
-[AzureWebSocket] Partial response delta:  Database
-[AzureWebSocket] Partial response delta:  +
-[AzureWebSocket] Partial response delta:  Azure
-[AzureWebSocket] Partial response delta:  Logic
-[AzureWebSocket] Partial response delta:  Apps
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Automated
-[AzureWebSocket] Partial response delta:  workflows
-[AzureWebSocket] Partial response delta:  with
-[AzureWebSocket] Partial response delta:  database
-[AzureWebSocket] Partial response delta:  operations
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:  
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Logic
-[AzureWebSocket] Partial response delta:  Apps
-[AzureWebSocket] Partial response delta:  integrate
-[AzureWebSocket] Partial response delta:  various
-[AzureWebSocket] Dropping near-silent audio chunk (rms=0.00315)
-[AzureWebSocket] Partial response delta:  services
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  automate
-[AzureWebSocket] Partial response delta:  data
-[AzureWebSocket] Partial response delta:  handling
-[AzureWebSocket] Partial response delta:  tasks
-[AzureWebSocket] Partial response delta: .
-[AzureWebSocket] Partial response delta:  
-
-
-[AzureWebSocket] Partial response delta: Comb
-[AzureWebSocket] Partial response delta: ining
-[AzureWebSocket] Partial response delta:  these
-[AzureWebSocket] Partial response delta:  services
-[AzureWebSocket] Partial response delta:  enhances
-[AzureWebSocket] Partial response delta:  efficiency
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  simplifies
-[AzureWebSocket] Partial response delta:  complex
-[AzureWebSocket] Partial response delta:  cloud
-[AzureWebSocket] Partial response delta:  workflows
-[AzureWebSocket] Partial response delta: .
-[AzureWebSocket] Unhandled WebSocket message type: response.text.done
-[AzureWebSocket] Unhandled WebSocket message type: response.output_item.done
-[AzureRealtime] Callback - Response received, sending to renderer: **Azure service combinations**
-
-- **Azure Kubernetes Service (AKS) + Azure DevOps**: Streamlined app...
-[AzureRealtime] Callback - Status: Ready
-+++[AzureWebSocket] WebSocket error: {
-  type: 'invalid_request_error',
-  code: 'invalid_type',
-  message: "Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.",
-  param: 'item.content[0].audio',
-  event_id: null
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYesyjfWOsMImuYeAC9',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' you',
+  obfuscation: null
 }
-[AzureRealtime] Callback - Error: Error: Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.
-    at AzureRealtimeWebSocketService.handleWebSocketMessage (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:522:44)
-    at WebSocket.<anonymous> (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:133:30)
-    at WebSocket.emit (node:events:519:28)
-    at Receiver.receiverOnMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\websocket.js:1220:20)
-    at Receiver.emit (node:events:519:28)
-    at Receiver.dataMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:596:14)
-    at Receiver.getData (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:496:10)
-    at Receiver.startLoop (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:167:16)
-    at Receiver._write (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:94:10)
-    at writeOrBuffer (node:internal/streams/writable:570:12)
-+++[AzureRealtime] Callback - Transcription: How do you use it?
-+[AzureWebSocket] Unhandled WebSocket message type: response.output_item.added
-[AzureWebSocket] Unhandled WebSocket message type: response.content_part.added
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: How
-[AzureWebSocket] Partial response delta:  to
-[AzureWebSocket] Partial response delta:  use
-[AzureWebSocket] Partial response delta:  Azure
-[AzureWebSocket] Partial response delta:  services
-[AzureWebSocket] Partial response delta: **
-
-
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  Portal
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Web
-[AzureWebSocket] Partial response delta: -based
-[AzureWebSocket] Partial response delta:  interface
-[AzureWebSocket] Partial response delta:  to
-[AzureWebSocket] Partial response delta:  create
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  manage
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  monitor
-+[AzureWebSocket] Partial response delta:  resources
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Access
-[AzureWebSocket] Partial response delta:  various
-[AzureWebSocket] Partial response delta:  Azure
-[AzureWebSocket] Partial response delta:  services
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  configure
-[AzureWebSocket] Partial response delta:  settings
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  view
-[AzureWebSocket] Partial response delta:  resource
+[AzureWebSocket] Partial response delta:  you
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYe9Xlpii8A3mugRr1x',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' gain',
+  obfuscation: null
+}
+[AzureWebSocket] Partial response delta:  gain
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeoajA22yOsSoNBgiz',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' visibility',
+  obfuscation: null
+}
+[AzureWebSocket] Partial response delta:  visibility
+[AzureWebSocket] Received WebSocket message: response.audio.delta
+---------------- AzureServerMessage {
+  type: 'response.audio.delta',
+  event_id: 'event_CQbYeV3xsUuC1tYTfEZ2V',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: '<base64 64000 chars>'
+}
+[AzureRealtime] Callback - Audio received: 64000 bytes
+--[AzureWebSocket] Received WebSocket message: response.audio.delta
+---------------- AzureServerMessage {
+  type: 'response.audio.delta',
+  event_id: 'event_CQbYePyTkNt4Y7KPilgrn',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: '<base64 64000 chars>'
+}
+[AzureRealtime] Callback - Audio received: 64000 bytes
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeuKYd42kJ7THHW1wm',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' into',
+  obfuscation: null
+}
+[AzureWebSocket] Partial response delta:  into
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYebBvXMSZXL78SJDEc',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' cluster',
+  obfuscation: null
+}
+[AzureWebSocket] Partial response delta:  cluster
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeL1z8IWakxdhcUJOl',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' health',
+  obfuscation: null
+}
 [AzureWebSocket] Partial response delta:  health
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  CLI
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Command
-+[AzureWebSocket] Partial response delta: -line
-[AzureWebSocket] Partial response delta:  tool
-[AzureWebSocket] Partial response delta:  for
-[AzureWebSocket] Partial response delta:  managing
-[AzureWebSocket] Partial response delta:  Azure
-[AzureWebSocket] Partial response delta:  resources
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Execute
-[AzureWebSocket] Partial response delta:  commands
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeR4160FAaJ71M8tbU',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' and',
+  obfuscation: null
+}
+[AzureWebSocket] Partial response delta:  and
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeAHboylQQQMwNq0c1',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' performance',
+  obfuscation: null
+}
+[AzureWebSocket] Partial response delta:  performance
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeo1ZfXHzr9Ohkm6Vw',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ',',
+  obfuscation: null
+}
+[AzureWebSocket] Partial response delta: ,
+--[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYepXtxmjEyywyizMR5',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' helping',
+  obfuscation: null
+}
+[AzureWebSocket] Partial response delta:  helping
+[AzureWebSocket] Received WebSocket message: response.audio.delta
+---------------- AzureServerMessage {
+  type: 'response.audio.delta',
+  event_id: 'event_CQbYejI5F16vlOPqUd7Ou',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: '<base64 64000 chars>'
+}
+[AzureRealtime] Callback - Audio received: 64000 bytes
+-[AzureWebSocket] Received WebSocket message: response.audio.delta
+---------------- AzureServerMessage {
+  type: 'response.audio.delta',
+  event_id: 'event_CQbYe19ln3NPf6h4rulFJ',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: '<base64 64000 chars>'
+}
+[AzureRealtime] Callback - Audio received: 64000 bytes
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeBm5vtk6bBSwFP9fS',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' to',
+  obfuscation: null
+}
 [AzureWebSocket] Partial response delta:  to
-[AzureWebSocket] Partial response delta:  deploy
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeGbEbuehTUkCrxD8N',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' maintain',
+  obfuscation: null
+}
+[AzureWebSocket] Partial response delta:  maintain
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeTifyz3Y2WaDB7N8k',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' reliability',
+  obfuscation: null
+}
+[AzureWebSocket] Partial response delta:  reliability
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeeU3TNXgdWEJU8vWS',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' and',
+  obfuscation: null
+}
 [AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  manage
-[AzureWebSocket] Partial response delta:  resources
-[AzureWebSocket] Partial response delta:  directly
-[AzureWebSocket] Partial response delta:  from
-[AzureWebSocket] Partial response delta:  the
-[AzureWebSocket] Partial response delta:  terminal
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeiPjFuccZEPFijSiu',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: ' efficiency',
+  obfuscation: null
+}
+[AzureWebSocket] Partial response delta:  efficiency
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.delta
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.delta',
+  event_id: 'event_CQbYeCZFPQ8Yri3DXPb1D',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: '.',
+  obfuscation: null
+}
 [AzureWebSocket] Partial response delta: .
+--[AzureWebSocket] Received WebSocket message: response.audio.delta
+---------------- AzureServerMessage {
+  type: 'response.audio.delta',
+  event_id: 'event_CQbYfyLNFfY6FagEnCALr',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: '<base64 64000 chars>'
+}
+[AzureRealtime] Callback - Audio received: 64000 bytes
+[AzureWebSocket] Received WebSocket message: response.audio.delta
+---------------- AzureServerMessage {
+  type: 'response.audio.delta',
+  event_id: 'event_CQbYfu8g9ug8a36OGFFRC',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: '<base64 64000 chars>'
+}
+[AzureRealtime] Callback - Audio received: 64000 bytes
+--[AzureWebSocket] Received WebSocket message: response.audio.delta
+---------------- AzureServerMessage {
+  type: 'response.audio.delta',
+  event_id: 'event_CQbYfH4ylOkcoH6Q05xJP',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: '<base64 64000 chars>'
+}
+[AzureRealtime] Callback - Audio received: 64000 bytes
+-[AzureWebSocket] Received WebSocket message: response.audio.delta
+---------------- AzureServerMessage {
+  type: 'response.audio.delta',
+  event_id: 'event_CQbYfkbsAUSnvkZQg785t',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  delta: '<base64 82264 chars>'
+}
+[AzureRealtime] Callback - Audio received: 82264 bytes
+[AzureWebSocket] Received WebSocket message: response.audio.done
+---------------- AzureServerMessage {
+  type: 'response.audio.done',
+  event_id: 'event_CQbYfst8i5KaRX7CaN1CZ',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0
+}
+[AzureWebSocket] Unhandled WebSocket message type: response.audio.done
+[AzureWebSocket] Received WebSocket message: response.audio_transcript.done
+---------------- AzureServerMessage {
+  type: 'response.audio_transcript.done',
+  event_id: 'event_CQbYf06N5U3n0K9eJqcCK',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  transcript: '**Using Azure Kubernetes Service (AKS)**\n' +
+    '\n' +
+    '- **Cluster Management**: Simplifies deploying and managing Kubernetes clusters.\n' +
+    '  - **Auto-scaling**: Automatically adjusts the number of nodes based on dema... (+444 chars)'   
+}
+[AzureWebSocket] Received WebSocket message: response.content_part.done
+---------------- AzureServerMessage {
+  type: 'response.content_part.done',
+  event_id: 'event_CQbYf9bNOqFqz6rL7bipQ',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  item_id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+  output_index: 0,
+  content_index: 0,
+  part: {
+    type: 'audio',
+    transcript: '**Using Azure Kubernetes Service (AKS)**\n' +
+      '\n' +
+      '- **Cluster Management**: Simplifies deploying and managing Kubernetes clusters.\n' +
+      '  - **Auto-scaling**: Automatically adjusts the number of nodes based on dema... (+444 chars)' 
+  },
+  content: {
+    type: 'audio',
+    transcript: '**Using Azure Kubernetes Service (AKS)**\n' +
+      '\n' +
+      '- **Cluster Management**: Simplifies deploying and managing Kubernetes clusters.\n' +
+      '  - **Auto-scaling**: Automatically adjusts the number of nodes based on dema... (+444 chars)' 
+  }
+}
+[AzureWebSocket] Received WebSocket message: response.output_item.done
+---------------- AzureServerMessage {
+  type: 'response.output_item.done',
+  event_id: 'event_CQbYfDCzc6ORwmBUKlyOH',
+  response_id: 'resp_CQbYZKpryf0E0gzG70IdH',
+  output_index: 0,
+  item: {
+    id: 'item_CQbYZuW4ysJgi7PImI5Dr',
+    object: 'realtime.item',
+    type: 'message',
+    status: 'completed',
+    role: 'assistant',
+    content: [ [Object] ]
+  }
+}
+[AzureWebSocket] Response output item done
+[AzureWebSocket] Received WebSocket message: response.done
+---------------- AzureServerMessage {
+  type: 'response.done',
+  event_id: 'event_CQbYfFBML4Mf6rioJS1KM',
+  response: {
+    object: 'realtime.response',
+    id: 'resp_CQbYZKpryf0E0gzG70IdH',
+    status: 'completed',
+    status_details: null,
+    output: [ [Object] ],
+    conversation_id: 'conv_CQbY5ovpAYiiYoIDAcNnA',
+    modalities: [ 'audio', 'text' ],
+    voice: 'alloy',
+    output_audio_format: 'pcm16',
+    temperature: 0.8,
+    max_output_tokens: 'inf',
+    usage: {
+      total_tokens: 5566,
+      input_tokens: 4726,
+      output_tokens: 840,
+      input_token_details: [Object],
+      output_token_details: [Object]
+    },
+    metadata: null
+  }
+}
+[AzureWebSocket] Response completed
+[AzureRealtime] Callback - Response received, sending to renderer: **Using Azure Kubernetes Service (AKS)**
 
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  Resource
-[AzureWebSocket] Partial response delta:  Manager
-[AzureWebSocket] Partial response delta:  (
-[AzureWebSocket] Partial response delta: ARM
-[AzureWebSocket] Partial response delta: )
-[AzureWebSocket] Partial response delta:  templates
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-++[AzureWebSocket] Partial response delta:  Infrastructure
-[AzureWebSocket] Partial response delta:  as
-[AzureWebSocket] Partial response delta:  code
-[AzureWebSocket] Partial response delta:  for
-[AzureWebSocket] Partial response delta:  resource
-[AzureWebSocket] Partial response delta:  deployment
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Define
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  deploy
-[AzureWebSocket] Partial response delta:  resources
-[AzureWebSocket] Partial response delta:  in
-[AzureWebSocket] Partial response delta:  a
-[AzureWebSocket] Partial response delta:  consistent
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  repeat
-[AzureWebSocket] Partial response delta: able
-[AzureWebSocket] Partial response delta:  manner
-[AzureWebSocket] Partial response delta:  using
-[AzureWebSocket] Partial response delta:  JSON
-[AzureWebSocket] Partial response delta:  templates
-[AzureWebSocket] Partial response delta: .
-
-
-[AzureWebSocket] Partial response delta: These
-[AzureWebSocket] Partial response delta:  tools
-[AzureWebSocket] Partial response delta:  help
-+[AzureWebSocket] Partial response delta:  users
-+[AzureWebSocket] Partial response delta:  efficiently
-[AzureWebSocket] Partial response delta:  manage
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  automate
-[AzureWebSocket] Partial response delta:  Azure
-[AzureWebSocket] Partial response delta:  services
-[AzureWebSocket] Partial response delta: .
-[AzureWebSocket] Unhandled WebSocket message type: response.text.done
-[AzureWebSocket] Unhandled WebSocket message type: response.output_item.done
-[AzureRealtime] Callback - Response received, sending to renderer: **How to use Azure services**
-
-- **Azure Portal**: Web-based interface to create, manage, and monito...
+- **Cluster Management**: Simplifies deploying and managin...
 [AzureRealtime] Callback - Status: Ready
-[AzureWebSocket] WebSocket error: {
-  type: 'invalid_request_error',
-  code: 'invalid_type',
-  message: "Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.",
-  param: 'item.content[0].audio',
-  event_id: null
+[AzureWebSocket] Metrics update (response.done): {
+  queuedChunks: 99,
+  skippedChunks: 237,
+  flushes: 99,
+  bytesSent: 475200,
+  commits: 3
 }
-[AzureRealtime] Callback - Error: Error: Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.
-    at AzureRealtimeWebSocketService.handleWebSocketMessage (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:522:44)
-    at WebSocket.<anonymous> (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:133:30)
-    at WebSocket.emit (node:events:519:28)
-    at Receiver.receiverOnMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\websocket.js:1220:20)
-    at Receiver.emit (node:events:519:28)
-    at Receiver.dataMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:596:14)
-    at Receiver.getData (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:496:10)
-    at Receiver.startLoop (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:167:16)
-    at Receiver._write (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:94:10)
-    at writeOrBuffer (node:internal/streams/writable:570:12)
-++[AzureRealtime] Callback - Transcription: as your medicare
-++[AzureWebSocket] Unhandled WebSocket message type: response.output_item.added
-[AzureWebSocket] Unhandled WebSocket message type: response.content_part.added
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  management
-[AzureWebSocket] Partial response delta:  tools
-[AzureWebSocket] Partial response delta: **
-
-
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  Portal
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Central
-[AzureWebSocket] Partial response delta: ized
-[AzureWebSocket] Partial response delta:  web
-[AzureWebSocket] Partial response delta:  management
-++[AzureWebSocket] Partial response delta:  interface
-[AzureWebSocket] Partial response delta:  for
-[AzureWebSocket] Partial response delta:  Azure
-[AzureWebSocket] Partial response delta:  resources
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Offers
-+[AzureWebSocket] Partial response delta:  dashboards
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  resource
-[AzureWebSocket] Partial response delta:  views
-[AzureWebSocket] Partial response delta: ,
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  monitoring
-[AzureWebSocket] Partial response delta:  capabilities
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  CLI
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Command
-[AzureWebSocket] Partial response delta: -line
-[AzureWebSocket] Partial response delta:  interface
-[AzureWebSocket] Partial response delta:  for
-++[AzureWebSocket] Partial response delta:  scripting
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  automation
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:  
-[AzureWebSocket] WebSocket error: {
-  type: 'invalid_request_error',
-  code: 'invalid_type',
-  message: "Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.",
-  param: 'item.content[0].audio',
-  event_id: null
+--+[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 100,
+  skippedChunks: 239,
+  flushes: 100,
+  bytesSent: 480000,
+  commits: 3
 }
-[AzureRealtime] Callback - Error: Error: Invalid type for 'item.content[0].audio': expected audio bytes, but got an object instead.
-    at AzureRealtimeWebSocketService.handleWebSocketMessage (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:522:44)
-    at WebSocket.<anonymous> (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:133:30)
-    at WebSocket.emit (node:events:519:28)
-    at Receiver.receiverOnMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\websocket.js:1220:20)
-    at Receiver.emit (node:events:519:28)
-    at Receiver.dataMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:596:14)
-    at Receiver.getData (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:496:10)
-    at Receiver.startLoop (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:167:16)
-    at Receiver._write (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:94:10)
-    at writeOrBuffer (node:internal/streams/writable:570:12)
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Facilit
-[AzureWebSocket] Partial response delta: ates
-[AzureWebSocket] Partial response delta:  resource
-+[AzureWebSocket] Partial response delta:  management
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  deployment
-[AzureWebSocket] Partial response delta:  tasks
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta: -
-[AzureWebSocket] Partial response delta:  **
-[AzureWebSocket] Partial response delta: Azure
-[AzureWebSocket] Partial response delta:  Power
-[AzureWebSocket] Partial response delta: Shell
-[AzureWebSocket] Partial response delta: **
-[AzureWebSocket] Partial response delta: :
-[AzureWebSocket] Partial response delta:  Power
-[AzureWebSocket] Partial response delta: Shell
-[AzureWebSocket] Partial response delta:  cmd
-[AzureWebSocket] Partial response delta: lets
-[AzureWebSocket] Partial response delta:  specifically
-[AzureWebSocket] Partial response delta:  for
-[AzureWebSocket] Partial response delta:  Azure
-[AzureWebSocket] Partial response delta: .
-
-[AzureWebSocket] Partial response delta:
-[AzureWebSocket] Partial response delta:  -
-[AzureWebSocket] Partial response delta:  Useful
-[AzureWebSocket] Partial response delta:  for
-[AzureWebSocket] Partial response delta:  managing
-[AzureWebSocket] Partial response delta:  resources
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  autom
-[AzureWebSocket] Partial response delta: ating
-[AzureWebSocket] Partial response delta:  administrative
-[AzureWebSocket] Partial response delta:  tasks
-[AzureWebSocket] Partial response delta: .
-
-
-[AzureWebSocket] Partial response delta: These
-[AzureWebSocket] Partial response delta:  tools
-[AzureWebSocket] Partial response delta:  provide
-[AzureWebSocket] Partial response delta:  flexibility
-[AzureWebSocket] Partial response delta:  and
-[AzureWebSocket] Partial response delta:  control
-[AzureWebSocket] Partial response delta:  over
-[AzureWebSocket] Partial response delta:  Azure
-[AzureWebSocket] Partial response delta:  environments
-[AzureWebSocket] Partial response delta: .
-[AzureWebSocket] Unhandled WebSocket message type: response.text.done
-[AzureWebSocket] Unhandled WebSocket message type: response.output_item.done
-[AzureRealtime] Callback - Response received, sending to renderer: **Azure management tools**
-
-- **Azure Portal**: Centralized web management interface for Azure resou...
-[AzureRealtime] Callback - Status: Ready
-[AzureWebSocket] WebSocket error: {
-  type: 'invalid_request_error',
-  code: 'conversation_already_has_active_response',
-  message: 'Conversation already has an active response in progress: resp_CQLxuMHreeapzna9VPa16. Wait until the response is finished before creating a new one.',
-  param: null,
-  event_id: null
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 101,
+  skippedChunks: 239,
+  flushes: 101,
+  bytesSent: 484800,
+  commits: 3
 }
-[AzureRealtime] Callback - Error: Error: Conversation already has an active response in progress: resp_CQLxuMHreeapzna9VPa16. Wait until the response is finished before creating a new one.
-    at AzureRealtimeWebSocketService.handleWebSocketMessage (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:522:44)
-    at WebSocket.<anonymous> (C:\workspace\source\cd-oai\cd\src\utils\azureRealtimeWebSocket.js:133:30)
-    at WebSocket.emit (node:events:519:28)
-    at Receiver.receiverOnMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\websocket.js:1220:20)
-    at Receiver.emit (node:events:519:28)
-    at Receiver.dataMessage (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:596:14)
-    at Receiver.getData (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:496:10)
-    at Receiver.startLoop (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:167:16)
-    at Receiver._write (C:\workspace\source\cd-oai\cd\node_modules\ws\lib\receiver.js:94:10)
-    at writeOrBuffer (node:internal/streams/writable:570:12)
-[AzureRealtime] Callback - Transcription: service.
-[AzureWebSocket] Dropping near-silent audio chunk (rms=0.00014)
-++++[AzureWebSocket] Dropping near-silent audio chunk (rms=0.00021)
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 102,
+  skippedChunks: 239,
+  flushes: 102,
+  bytesSent: 489600,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 103,
+  skippedChunks: 239,
+  flushes: 103,
+  bytesSent: 494400,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 104,
+  skippedChunks: 239,
+  flushes: 104,
+  bytesSent: 499200,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 105,
+  skippedChunks: 239,
+  flushes: 105,
+  bytesSent: 504000,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 106,
+  skippedChunks: 239,
+  flushes: 106,
+  bytesSent: 508800,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 107,
+  skippedChunks: 239,
+  flushes: 107,
+  bytesSent: 513600,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 108,
+  skippedChunks: 239,
+  flushes: 108,
+  bytesSent: 518400,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 109,
+  skippedChunks: 239,
+  flushes: 109,
+  bytesSent: 523200,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 110,
+  skippedChunks: 239,
+  flushes: 110,
+  bytesSent: 528000,
+  commits: 3
+}
+-+[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 111,
+  skippedChunks: 240,
+  flushes: 111,
+  bytesSent: 532800,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 112,
+  skippedChunks: 240,
+  flushes: 112,
+  bytesSent: 537600,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 113,
+  skippedChunks: 240,
+  flushes: 113,
+  bytesSent: 542400,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 114,
+  skippedChunks: 240,
+  flushes: 114,
+  bytesSent: 547200,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 115,
+  skippedChunks: 240,
+  flushes: 115,
+  bytesSent: 552000,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 116,
+  skippedChunks: 240,
+  flushes: 116,
+  bytesSent: 556800,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 117,
+  skippedChunks: 240,
+  flushes: 117,
+  bytesSent: 561600,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 118,
+  skippedChunks: 240,
+  flushes: 118,
+  bytesSent: 566400,
+  commits: 3
+}
+-+[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 119,
+  skippedChunks: 241,
+  flushes: 119,
+  bytesSent: 571200,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 120,
+  skippedChunks: 241,
+  flushes: 120,
+  bytesSent: 576000,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 121,
+  skippedChunks: 241,
+  flushes: 121,
+  bytesSent: 580800,
+  commits: 3
+}
+[AzureWebSocket] Dropping near-silent audio chunk (rms=0.00017)
+---------------+[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 122,
+  skippedChunks: 256,
+  flushes: 122,
+  bytesSent: 585600,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 123,
+  skippedChunks: 256,
+  flushes: 123,
+  bytesSent: 590400,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 124,
+  skippedChunks: 256,
+  flushes: 124,
+  bytesSent: 595200,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 125,
+  skippedChunks: 256,
+  flushes: 125,
+  bytesSent: 600000,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 126,
+  skippedChunks: 256,
+  flushes: 126,
+  bytesSent: 604800,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 127,
+  skippedChunks: 256,
+  flushes: 127,
+  bytesSent: 609600,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 128,
+  skippedChunks: 256,
+  flushes: 128,
+  bytesSent: 614400,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 129,
+  skippedChunks: 256,
+  flushes: 129,
+  bytesSent: 619200,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 130,
+  skippedChunks: 256,
+  flushes: 130,
+  bytesSent: 624000,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 131,
+  skippedChunks: 256,
+  flushes: 131,
+  bytesSent: 628800,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 132,
+  skippedChunks: 256,
+  flushes: 132,
+  bytesSent: 633600,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 133,
+  skippedChunks: 256,
+  flushes: 133,
+  bytesSent: 638400,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 134,
+  skippedChunks: 256,
+  flushes: 134,
+  bytesSent: 643200,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 135,
+  skippedChunks: 256,
+  flushes: 135,
+  bytesSent: 648000,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 136,
+  skippedChunks: 256,
+  flushes: 136,
+  bytesSent: 652800,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 137,
+  skippedChunks: 256,
+  flushes: 137,
+  bytesSent: 657600,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 138,
+  skippedChunks: 256,
+  flushes: 138,
+  bytesSent: 662400,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 139,
+  skippedChunks: 256,
+  flushes: 139,
+  bytesSent: 667200,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 140,
+  skippedChunks: 256,
+  flushes: 140,
+  bytesSent: 672000,
+  commits: 3
+}
+-------[AzureWebSocket] Dropping near-silent audio chunk (rms=0.00011)
+-----------+[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 141,
+  skippedChunks: 274,
+  flushes: 141,
+  bytesSent: 676800,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 142,
+  skippedChunks: 274,
+  flushes: 142,
+  bytesSent: 681600,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 143,
+  skippedChunks: 274,
+  flushes: 143,
+  bytesSent: 686400,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 144,
+  skippedChunks: 274,
+  flushes: 144,
+  bytesSent: 691200,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 145,
+  skippedChunks: 274,
+  flushes: 145,
+  bytesSent: 696000,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 146,
+  skippedChunks: 274,
+  flushes: 146,
+  bytesSent: 700800,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 147,
+  skippedChunks: 274,
+  flushes: 147,
+  bytesSent: 705600,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 148,
+  skippedChunks: 274,
+  flushes: 148,
+  bytesSent: 710400,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 149,
+  skippedChunks: 274,
+  flushes: 149,
+  bytesSent: 715200,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 150,
+  skippedChunks: 274,
+  flushes: 150,
+  bytesSent: 720000,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 151,
+  skippedChunks: 274,
+  flushes: 151,
+  bytesSent: 724800,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 152,
+  skippedChunks: 274,
+  flushes: 152,
+  bytesSent: 729600,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 153,
+  skippedChunks: 274,
+  flushes: 153,
+  bytesSent: 734400,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 154,
+  skippedChunks: 274,
+  flushes: 154,
+  bytesSent: 739200,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 155,
+  skippedChunks: 274,
+  flushes: 155,
+  bytesSent: 744000,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 156,
+  skippedChunks: 274,
+  flushes: 156,
+  bytesSent: 748800,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 157,
+  skippedChunks: 274,
+  flushes: 157,
+  bytesSent: 753600,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 158,
+  skippedChunks: 274,
+  flushes: 158,
+  bytesSent: 758400,
+  commits: 3
+}
++[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 159,
+  skippedChunks: 274,
+  flushes: 159,
+  bytesSent: 763200,
+  commits: 3
+}
+---+[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 160,
+  skippedChunks: 277,
+  flushes: 160,
+  bytesSent: 768000,
+  commits: 3
+}
+--+[AzureWebSocket] Sending message: input_audio_buffer.append
+[AzureWebSocket] Metrics update (size_threshold): {
+  queuedChunks: 161,
+  skippedChunks: 279,
+  flushes: 161,
+  bytesSent: 772800,
+  commits: 3
+}
 [index.js] close-azure-session called
 [index.js] Closing Azure session
 [AzureWebSocket] Closing Azure WebSocket connection
@@ -1015,3 +1010,4 @@ Starting animated resize from 905x600 to 900x600
 Animation complete: 900x600
 [AzureWebSocket] WebSocket closed: code=1005, reason=
 [AzureRealtime] Callback - Status: Disconnected
+PS C:\workspace\source\cd-oai\cd> 

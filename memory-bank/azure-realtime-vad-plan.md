@@ -21,7 +21,7 @@ Adopt Azure OpenAI realtime service for microphone-driven conversations while re
    - [x] On `speech_started`, reset any partial buffer and log the turn start.
    - [x] On `speech_stopped`, trigger `commitAudioBufferAndCreateResponse()` immediately, regardless of buffer size (Azure already guarantees ≥100 ms).
    - [x] Verify session configuration always sets `turn_detection: { type: "server_vad" }` (matches context7 guidance) and document the rationale.
-   - [x] Confirm we send a `conversation.item.create` with role `user` (per Azure docs) to anchor each mic turn before requesting a response.
+   - [ ] Confirm we send a `conversation.item.create` with role `user` (per Azure docs) to anchor each mic turn before requesting a response. *(Paused: Azure threw `invalid_type` when provided without inline audio, revisit once docs clarify turn anchoring with commits.)*
 
 3. **Simplify Commit Logic**
    - [x] Remove `pendingResponse`, `lastTranscript`, and transcript-based gating introduced during manual fixes.

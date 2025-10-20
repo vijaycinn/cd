@@ -1,4 +1,5 @@
 const { BrowserWindow, ipcMain } = require('electron');
+const { handleGeminiAudioChunk, handleGeminiMicAudioChunk } = require('./gemini');
 
 // Audio routing service that intelligently routes audio between Gemini and Azure
 class AudioRouter {
@@ -72,33 +73,9 @@ class AudioRouter {
         }
 
         // Restore Gemini handlers
-        ipcMain.handle('send-audio-content', async (event, { data, mimeType }) => {
-            if (!this.geminiSessionRef?.current) return { success: false, error: 'No active Gemini session' };
-            try {
-                process.stdout.write('.'); // Back to Gemini marker
-                await this.geminiSessionRef.current.sendRealtimeInput({
-                    audio: { data: data, mimeType: mimeType },
-                });
-                return { success: true };
-            } catch (error) {
-                console.error('Error sending system audio:', error);
-                return { success: false, error: error.message };
-            }
-        });
+        ipcMain.handle('send-audio-content', async (event, payload) => handleGeminiAudioChunk(payload));
 
-        ipcMain.handle('send-mic-audio-content', async (event, { data, mimeType }) => {
-            if (!this.geminiSessionRef?.current) return { success: false, error: 'No active Gemini session' };
-            try {
-                process.stdout.write(','); // Back to Gemini marker
-                await this.geminiSessionRef.current.sendRealtimeInput({
-                    audio: { data: data, mimeType: mimeType },
-                });
-                return { success: true };
-            } catch (error) {
-                console.error('Error sending mic audio:', error);
-                return { success: false, error: error.message };
-            }
-        });
+        ipcMain.handle('send-mic-audio-content', async (event, payload) => handleGeminiMicAudioChunk(payload));
 
         this.routingActive = false;
     }
@@ -153,17 +130,11 @@ class AudioRouter {
             return { success: false, error: `No active LLM session for ${channel}` };
         }
 
-        try {
-            const marker = channel === 'send-audio-content' ? '.' : ',';
-            process.stdout.write(marker);
-            await this.geminiSessionRef.current.sendRealtimeInput({
-                audio: { data: data, mimeType: mimeType },
-            });
-            return { success: true };
-        } catch (error) {
-            console.error(`Error sending audio to Gemini (${channel}):`, error);
-            return { success: false, error: error.message };
+        if (channel === 'send-audio-content') {
+            return handleGeminiAudioChunk({ data, mimeType });
         }
+
+        return handleGeminiMicAudioChunk({ data, mimeType });
     }
 
     isAzureActive() {

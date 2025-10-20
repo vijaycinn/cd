@@ -93,9 +93,11 @@ class AzureRealtimeWebSocketService extends LLMService {
         this.consecutiveSilentDrops = 0;
         this.hasSentAudio = false;
     this.expectedSampleRate = this.azureRealtimeSettings.sampleRate || 16000;
-        this.minCommitMs = commitSettings.minCommitMs;
-        this.minCommitBytes = commitSettings.minCommitBytes;
-        this.commitPaddingEnabled = commitSettings.padSilence;
+    this.minCommitMs = commitSettings.minCommitMs;
+    this.minCommitBytes = commitSettings.minCommitBytes;
+    this.commitPaddingEnabled = commitSettings.padSilence;
+    this.commitTailSilenceMs = commitSettings.tailSilenceMs ?? 0;
+    this.commitTailSilenceBytes = Math.max(0, Math.round((this.expectedSampleRate / 1000) * this.commitTailSilenceMs) * 2);
         this.bytesSinceLastCommit = 0;
 
         this.pendingChunkAccumulator = [];
@@ -560,10 +562,15 @@ class AzureRealtimeWebSocketService extends LLMService {
                     const errorPayload = message.error || message;
                     if (errorPayload?.code === 'input_audio_buffer_commit_empty') {
                         console.warn('[AzureWebSocket] Server rejected commit (buffer too small); padding requirement not met');
-                        this.pendingAudioForCommit = false;
+                        this.pendingAudioForCommit = true;
                         this.bytesSinceLastCommit = 0;
                         this.hasSentAudio = false;
                         this.consecutiveSilentDrops = 0;
+                        if (this.commitPaddingEnabled) {
+                            this.commitAudioBuffer('retry_after_commit_empty', { forceTailPadding: true });
+                        } else {
+                            this.pendingAudioForCommit = false;
+                        }
                         break;
                     }
                     console.error('[AzureWebSocket] WebSocket error:', errorPayload);
@@ -724,7 +731,8 @@ class AzureRealtimeWebSocketService extends LLMService {
         return true;
     }
 
-    commitAudioBuffer(context = 'unspecified') {
+    commitAudioBuffer(context = 'unspecified', options = {}) {
+        const { forceTailPadding = false } = options;
         if (!this.pendingAudioForCommit) {
             this.debugLog('[AzureWebSocket] Commit skipped (%s) - no pending audio', context);
             return true;
@@ -735,22 +743,40 @@ class AzureRealtimeWebSocketService extends LLMService {
             return false;
         }
 
-        if (this.bytesSinceLastCommit < this.minCommitBytes) {
-            if (this.commitPaddingEnabled) {
-                const missingBytes = this.minCommitBytes - this.bytesSinceLastCommit;
-                const paddingBuffer = Buffer.alloc(missingBytes);
-                this.debugLog('[AzureWebSocket] Padding audio buffer with %d bytes of silence before commit (%s)', missingBytes, context);
-                if (!this.send({ type: 'input_audio_buffer.append', audio: paddingBuffer.toString('base64') })) {
-                    console.warn('[AzureWebSocket] Failed to send silence padding before commit');
-                    return false;
-                }
-                this.metrics.audioFlushes += 1;
-                this.metrics.audioBytesSent += missingBytes;
-                this.bytesSinceLastCommit += missingBytes;
-            } else {
+        let requiredPadding = 0;
+        const missingBytes = Math.max(0, this.minCommitBytes - this.bytesSinceLastCommit);
+
+        if (missingBytes > 0) {
+            if (!this.commitPaddingEnabled) {
                 this.debugLog('[AzureWebSocket] Commit deferred (%s) - only %d bytes since last commit', context, this.bytesSinceLastCommit);
                 return true;
             }
+            requiredPadding = missingBytes;
+        }
+
+        const shouldTailPad = this.commitPaddingEnabled
+            && this.commitTailSilenceBytes > 0
+            && (forceTailPadding || context === 'speech_stopped' || context === 'silence_gap');
+
+        if (shouldTailPad) {
+            requiredPadding = Math.max(requiredPadding, this.commitTailSilenceBytes);
+        }
+
+        if (requiredPadding > 0) {
+            const paddingBuffer = Buffer.alloc(requiredPadding);
+            this.debugLog('[AzureWebSocket] Padding audio buffer with %d bytes of silence before commit (%s)', requiredPadding, context);
+            if (!this.send({ type: 'input_audio_buffer.append', audio: paddingBuffer.toString('base64') })) {
+                console.warn('[AzureWebSocket] Failed to send silence padding before commit');
+                return false;
+            }
+            this.metrics.audioFlushes += 1;
+            this.metrics.audioBytesSent += requiredPadding;
+            this.bytesSinceLastCommit += requiredPadding;
+        }
+
+        if (this.bytesSinceLastCommit <= 0) {
+            this.debugLog('[AzureWebSocket] Commit skipped (%s) - no audio available after padding', context);
+            return true;
         }
 
         if (!this.send({ type: 'input_audio_buffer.commit' })) {

@@ -150,7 +150,7 @@ function arrayBufferToBase64(buffer) {
 }
 
 async function initializeGemini(profile = 'interview', language = 'en-US') {
-    const apiKey = localStorage.getItem('apiKey')?.trim();
+    const apiKey = localStorage.getItem('geminiApiKey')?.trim();
     if (apiKey) {
         const success = await ipcRenderer.invoke('initialize-gemini', apiKey, localStorage.getItem('customPrompt') || '', profile, language);
         if (success) {

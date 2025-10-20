@@ -49,7 +49,8 @@ const DEFAULT_TEMPLATE = {
         _comment: 'Controls how and when audio commits are issued to Azure.',
         minCommitMs: 100,
         minCommitBytes: null,
-        padSilence: true
+        padSilence: true,
+        tailSilenceMs: 120
     },
     serverVad: {
         _comment: 'Server VAD parameters used when turn detection is enabled.',
@@ -241,7 +242,8 @@ function applyEnvOverrides(settings) {
         ...overrides.commits,
         minCommitMs: normalizeNumber(process.env.AZURE_REALTIME_MIN_COMMIT_MS, overrides.commits.minCommitMs),
         minCommitBytes: normalizeNumber(process.env.AZURE_REALTIME_MIN_COMMIT_BYTES, overrides.commits.minCommitBytes ?? undefined),
-        padSilence: normalizeBoolean(process.env.AZURE_REALTIME_COMMIT_PAD_SILENCE, overrides.commits.padSilence)
+        padSilence: normalizeBoolean(process.env.AZURE_REALTIME_COMMIT_PAD_SILENCE, overrides.commits.padSilence),
+        tailSilenceMs: normalizeNumber(process.env.AZURE_REALTIME_COMMIT_TAIL_SILENCE_MS, overrides.commits.tailSilenceMs)
     };
 
     overrides.serverVad = {

@@ -280,7 +280,7 @@ export class SoundBoardApp extends LitElement {
         // PR84 PATTERN: Service-based key selection
         if (llmService === 'gemini') {
             console.log('[SoundBoardApp] Using Gemini service');
-            apiKey = localStorage.getItem('apiKey')?.trim();
+            apiKey = localStorage.getItem('geminiApiKey')?.trim();
         } else if (llmService === 'azure') {
             console.log('[SoundBoardApp] Using Azure service');
             apiKey = localStorage.getItem('azureApiKey')?.trim();

@@ -334,7 +334,7 @@ function triggerAzureWebSocketInit(profile = 'interview', language = 'en-US') {
 
     const azureApiKey = localStorage.getItem('azureApiKey')?.trim();
     const azureEndpoint = localStorage.getItem('azureEndpoint')?.trim();
-    const azureDeployment = localStorage.getItem('azureDeployment') || 'gpt-realtime';
+    const azureDeployment = localStorage.getItem('azureDeployment') || '';
     const azureRegion = localStorage.getItem('azureRegion')?.trim() || 'eastus2';
 
     console.log('[renderer] Azure credentials from localStorage:', {

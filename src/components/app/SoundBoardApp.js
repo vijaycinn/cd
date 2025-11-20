@@ -314,7 +314,7 @@ export class SoundBoardApp extends LitElement {
             await cheddar.initializeGemini(this.selectedProfile, this.selectedLanguage);
         } else if (llmService === 'azure') {
             const azureEndpoint = localStorage.getItem('azureEndpoint');
-            const azureDeployment = localStorage.getItem('azureDeployment') || 'gpt-realtime';
+            const azureDeployment = localStorage.getItem('azureDeployment') || '';
             const azureRegion = (localStorage.getItem('azureRegion') || 'eastus2');
             console.log(`[SoundBoardApp] Initializing Azure service - endpoint: ${azureEndpoint}, region: ${azureRegion}, deployment: ${azureDeployment}`);
             await cheddar.initializeAzureRealtime(this.selectedProfile, this.selectedLanguage, azureEndpoint, azureDeployment);

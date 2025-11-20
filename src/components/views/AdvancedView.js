@@ -352,8 +352,8 @@ export class AdvancedView extends LitElement {
         this.llmService = localStorage.getItem('llmService') || 'gemini';
     this.azureApiKey = localStorage.getItem('azureApiKey') || '';
     this.azureEndpoint = localStorage.getItem('azureEndpoint') || '';
-    this.azureRegion = localStorage.getItem('azureRegion') || 'eastus2';
-    this.azureDeployment = localStorage.getItem('azureDeployment') || 'gpt-realtime';
+    this.azureRegion = localStorage.getItem('azureRegion') || '';
+    this.azureDeployment = localStorage.getItem('azureDeployment') || '';
 
         this.loadRateLimitSettings();
         this.loadContentProtectionSetting();
@@ -645,11 +645,10 @@ export class AdvancedView extends LitElement {
                             <div class="form-group">
                                 <label class="form-label">Azure Region</label>
                                 <input type="text" name="azureRegion" class="form-control" .value=${this.azureRegion} @input=${this.handleInputChange} placeholder="eastus2">
-                                <div class="form-description">Matches the deployment region in Azure AI Foundry (for example, eastus2 or swedencentral)</div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Deployment Name</label>
-                                <input type="text" name="azureDeployment" class="form-control" .value=${this.azureDeployment} @input=${this.handleInputChange} placeholder="gpt-realtime">
+                                <input type="text" name="azureDeployment" class="form-control" .value=${this.azureDeployment} @input=${this.handleInputChange} placeholder="e.g., gpt-5-mini">
                             </div>
                         ` : ''}
                     </div>

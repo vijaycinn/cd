@@ -8,28 +8,46 @@ class AzureRealtimeWebSocketService extends LLMService {
         super(apiKey, customPrompt, profile, language);
 
         console.log('[AzureWebSocket] Initializing Azure OpenAI WebSocket Service (manual implementation)');
+        console.log('[AzureWebSocket] Raw endpoint:', endpoint);
 
-        // Extract hostname from endpoint URL for WebSocket URL construction
+        // Parse the endpoint to extract hostname and path
         let hostname = endpoint;
+        let basePath = '';
+        
         if (endpoint.startsWith('http')) {
             try {
                 const url = new URL(endpoint);
                 hostname = url.hostname;
-                console.log('[AzureWebSocket] Extracted hostname from endpoint:', hostname);
+                basePath = url.pathname.replace(/\/$/, ''); // Remove trailing slash
+                console.log('[AzureWebSocket] Extracted hostname:', hostname);
+                console.log('[AzureWebSocket] Extracted base path:', basePath);
             } catch (error) {
                 console.warn('[AzureWebSocket] Failed to parse endpoint URL, using as-is:', endpoint);
-                hostname = endpoint.replace(/^https?:\/\//, '');
+                hostname = endpoint.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
             }
         }
 
         const isServicesAiEndpoint = hostname.includes('.services.ai.azure.com');
         const isCognitiveServicesEndpoint = hostname.includes('.cognitiveservices.azure.com');
+        const isOpenAiEndpoint = hostname.includes('.openai.azure.com');
 
         const apiVersion = '2025-04-01-preview';
         let websocketHost = hostname;
 
-        if (isCognitiveServicesEndpoint) {
+        // Transform hostname if needed
+        if (isCognitiveServicesEndpoint && !isOpenAiEndpoint) {
             websocketHost = hostname.replace('.cognitiveservices.azure.com', '.openai.azure.com');
+            console.log('[AzureWebSocket] Transformed hostname to:', websocketHost);
+        }
+
+        // Construct WebSocket path
+        // If endpoint already has /openai/v1/, use it; otherwise default to /openai/realtime
+        let wsPath;
+        if (basePath.includes('/openai/v1')) {
+            // Use the base path structure but change to realtime endpoint
+            wsPath = basePath.replace('/v1', '/realtime');
+        } else {
+            wsPath = '/openai/realtime';
         }
 
         const websocketQuery = new URLSearchParams({
@@ -40,13 +58,9 @@ class AzureRealtimeWebSocketService extends LLMService {
             websocketQuery.set('deployment', deployment);
         }
 
-        this.websocketUrl = `wss://${websocketHost}/openai/realtime?${websocketQuery.toString()}`;
+        this.websocketUrl = `wss://${websocketHost}${wsPath}?${websocketQuery.toString()}`;
 
-        if (!isServicesAiEndpoint && !websocketHost.endsWith('.openai.azure.com')) {
-            console.warn('[AzureWebSocket] Endpoint host is not an Azure OpenAI domain:', hostname);
-        }
-
-        console.log('[AzureWebSocket] Manual WebSocket URL constructed (api key hidden)');
+        console.log('[AzureWebSocket] Constructed WebSocket URL:', this.websocketUrl.replace(/api-key=[^&]*/, 'api-key=***'));
 
         this.deployment = deployment;
         this.region = region || null;
@@ -135,6 +149,89 @@ class AzureRealtimeWebSocketService extends LLMService {
         };
     }
 
+    getAzureGroundingConfig() {
+        const config = {};
+        
+        // Azure AI Search grounding (Knowledge Base)
+        // Read from localStorage (Electron renderer values)
+        const searchEndpoint = (typeof localStorage !== 'undefined' ? localStorage.getItem('azureSearchEndpoint') : null) || null;
+        const searchIndex = (typeof localStorage !== 'undefined' ? localStorage.getItem('azureSearchIndex') : null) || null;
+        const searchKey = (typeof localStorage !== 'undefined' ? localStorage.getItem('azureSearchKey') : null) || null;
+        
+        if (searchEndpoint && searchIndex) {
+            config.data_sources = [{
+                type: 'azure_search',
+                parameters: {
+                    endpoint: searchEndpoint,
+                    index_name: searchIndex,
+                    authentication: searchKey ? {
+                        type: 'api_key',
+                        key: searchKey
+                    } : { type: 'system_assigned_managed_identity' },
+                    query_type: 'semantic',
+                    in_scope: true,
+                    top_n_documents: 5,
+                    strictness: 3
+                }
+            }];
+            console.log('[AzureWebSocket] Azure AI Search grounding enabled:', searchIndex);
+        }
+        
+        // Web search grounding (Bing)
+        const enableWebSearch = (typeof localStorage !== 'undefined' ? localStorage.getItem('azureEnableWebSearch') : null) === 'true';
+        if (enableWebSearch) {
+            if (!config.data_sources) config.data_sources = [];
+            const bingConnectionId = (typeof localStorage !== 'undefined' ? localStorage.getItem('azureBingConnectionId') : null) || 'default';
+            config.data_sources.push({
+                type: 'bing_grounding',
+                parameters: {
+                    connection_id: bingConnectionId
+                }
+            });
+            console.log('[AzureWebSocket] Web search grounding enabled');
+        }
+        
+        return config;
+    }
+
+    getAzureTools() {
+        const tools = [];
+        
+        // Load custom function tools from localStorage
+        // Example: Your deployed Azure AI Foundry tools
+        const customToolsJson = typeof localStorage !== 'undefined' ? localStorage.getItem('azureCustomTools') : null;
+        if (customToolsJson) {
+            try {
+                const customTools = JSON.parse(customToolsJson);
+                if (Array.isArray(customTools)) {
+                    tools.push(...customTools);
+                    console.log(`[AzureWebSocket] Loaded ${customTools.length} custom tools`);
+                } else {
+                    console.warn('[AzureWebSocket] Custom tools is not an array, ignoring');
+                }
+            } catch (error) {
+                console.warn('[AzureWebSocket] Failed to parse custom tools:', error.message);
+            }
+        }
+        
+        // You can also add predefined tools here
+        // Example tool schema:
+        // tools.push({
+        //     type: 'function',
+        //     name: 'get_weather',
+        //     description: 'Get current weather for a location',
+        //     parameters: {
+        //         type: 'object',
+        //         properties: {
+        //             location: { type: 'string', description: 'City name' }
+        //         },
+        //         required: ['location']
+        //     }
+        // });
+        
+        return tools;
+    }
+
     async init() {
         console.log('[AzureWebSocket] Initializing Azure WebSocket Realtime service (manual implementation)');
 
@@ -192,7 +289,12 @@ class AzureRealtimeWebSocketService extends LLMService {
                 setTimeout(() => {
                     if (this.socket.readyState === WebSocket.OPEN) {
                         this.debugLog('[AzureWebSocket] Sending initial session configuration...');
-                        this.send({
+                        
+                        // Get grounding configuration
+                        const groundingConfig = this.getAzureGroundingConfig();
+                        const tools = this.getAzureTools();
+                        
+                        const sessionConfig = {
                             type: "session.update",
                             session: {
                                 model: this.deployment,
@@ -204,10 +306,18 @@ class AzureRealtimeWebSocketService extends LLMService {
                                     model: "whisper-1"
                                 },
                                 turn_detection: this.getTurnDetectionConfig(),
-                                tools: [],
+                                tools: tools,
                                 modalities: ["text", "audio"]
                             }
-                        });
+                        };
+                        
+                        // Add grounding/data sources if configured
+                        if (groundingConfig.data_sources) {
+                            sessionConfig.session.data_sources = groundingConfig.data_sources;
+                            console.log('[AzureWebSocket] Grounding enabled with', groundingConfig.data_sources.length, 'data source(s)');
+                        }
+                        
+                        this.send(sessionConfig);
 
                         this.isInitialized = true;
                         this.isConnected = true;

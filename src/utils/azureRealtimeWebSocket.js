@@ -214,20 +214,43 @@ class AzureRealtimeWebSocketService extends LLMService {
             }
         }
         
-        // You can also add predefined tools here
-        // Example tool schema:
-        // tools.push({
-        //     type: 'function',
-        //     name: 'get_weather',
-        //     description: 'Get current weather for a location',
-        //     parameters: {
-        //         type: 'object',
-        //         properties: {
-        //             location: { type: 'string', description: 'City name' }
-        //         },
-        //         required: ['location']
-        //     }
-        // });
+        // Note: MCP tools are loaded asynchronously via getAzureToolsAsync()
+        // This method returns only localStorage tools for backward compatibility
+        
+        return tools;
+    }
+
+    /**
+     * Get tools including MCP tools (async)
+     * Call this during session initialization to include MCP tools
+     */
+    async getAzureToolsAsync() {
+        const tools = this.getAzureTools(); // Get localStorage tools
+        
+        // Fetch MCP tools from Microsoft Learn
+        try {
+            const { getInstance: getMCPClient } = require('./microsoftLearnMCP.js');
+            const mcpClient = getMCPClient();
+            
+            // Connect if not already connected
+            if (!mcpClient.isConnected()) {
+                console.log('[AzureWebSocket] Connecting to Microsoft Learn MCP...');
+                const connected = await mcpClient.connect();
+                if (!connected) {
+                    console.warn('[AzureWebSocket] Failed to connect to Microsoft Learn MCP');
+                    return tools;
+                }
+            }
+            
+            // Get MCP tools
+            const mcpTools = mcpClient.getTools();
+            if (mcpTools.length > 0) {
+                console.log(`[AzureWebSocket] Loaded ${mcpTools.length} MCP tools from Microsoft Learn`);
+                tools.push(...mcpTools);
+            }
+        } catch (error) {
+            console.warn('[AzureWebSocket] Error loading Microsoft Learn MCP tools:', error.message);
+        }
         
         return tools;
     }
@@ -286,13 +309,16 @@ class AzureRealtimeWebSocketService extends LLMService {
                 });
 
                 // Give connection time to establish, then send session config
-                setTimeout(() => {
+                setTimeout(async () => {
                     if (this.socket.readyState === WebSocket.OPEN) {
                         this.debugLog('[AzureWebSocket] Sending initial session configuration...');
                         
                         // Get grounding configuration
                         const groundingConfig = this.getAzureGroundingConfig();
-                        const tools = this.getAzureTools();
+                        
+                        // Get tools (including MCP tools)
+                        const tools = await this.getAzureToolsAsync();
+                        console.log(`[AzureWebSocket] Total tools: ${tools.length}`);
                         
                         const sessionConfig = {
                             type: "session.update",
@@ -657,6 +683,16 @@ class AzureRealtimeWebSocketService extends LLMService {
                 this.logMetrics('response.done');
                 break;
 
+            case 'response.function_call_arguments.delta':
+                this.debugLog('[AzureWebSocket] Function call arguments delta:', message);
+                // Accumulate function call arguments if needed
+                break;
+
+            case 'response.function_call_arguments.done':
+                console.log('[AzureWebSocket] Function call completed:', message.name);
+                this.handleToolCall(message);
+                break;
+
             case 'response.error':
                 console.error('[AzureWebSocket] Response error:', message.error);
                 if (this.callbacks.onError) {
@@ -697,6 +733,105 @@ class AzureRealtimeWebSocketService extends LLMService {
 
     setCallbacks(callbacks) {
         this.callbacks = { ...this.callbacks, ...callbacks };
+    }
+
+    async handleToolCall(message) {
+        const functionName = message.name;
+        const callId = message.call_id;
+        let args = {};
+
+        try {
+            args = JSON.parse(message.arguments || '{}');
+        } catch (error) {
+            console.error('[AzureWebSocket] Failed to parse tool arguments:', error);
+            this.sendToolResponse(callId, { error: 'Invalid arguments format' });
+            return;
+        }
+
+        console.log(`[AzureWebSocket] Executing tool: ${functionName}`, args);
+
+        // Check if this is a Microsoft Learn MCP tool
+        const mcpTools = ['microsoft_docs_search', 'microsoft_docs_fetch', 'microsoft_code_sample_search'];
+        if (mcpTools.includes(functionName)) {
+            await this.handleMCPToolCall(callId, functionName, args);
+        } else {
+            console.warn(`[AzureWebSocket] Unknown tool: ${functionName}`);
+            this.sendToolResponse(callId, {
+                error: `Tool '${functionName}' is not implemented`
+            });
+        }
+    }
+
+    /**
+     * Handle Microsoft Learn MCP tool call
+     */
+    async handleMCPToolCall(callId, toolName, args) {
+        try {
+            console.log(`[AzureWebSocket] Calling Microsoft Learn MCP tool: ${toolName}`, args);
+
+            const { getInstance: getMCPClient } = require('./microsoftLearnMCP.js');
+            const mcpClient = getMCPClient();
+
+            if (!mcpClient.isConnected()) {
+                throw new Error('Microsoft Learn MCP not connected');
+            }
+
+            // Call tool via MCP client
+            const result = await mcpClient.callTool(toolName, args);
+
+            if (!result.success) {
+                throw new Error(result.error || 'MCP tool call failed');
+            }
+
+            console.log(`[AzureWebSocket] MCP tool result:`, result.content);
+
+            // Format result for Azure AI
+            // MCP returns content array, we need to format it nicely
+            let formattedOutput = '';
+            if (Array.isArray(result.content)) {
+                formattedOutput = result.content
+                    .map(item => {
+                        if (item.type === 'text') {
+                            return item.text;
+                        } else if (item.type === 'resource') {
+                            return `[Resource: ${item.uri}]\n${item.text || ''}`;
+                        }
+                        return JSON.stringify(item);
+                    })
+                    .join('\n\n');
+            } else {
+                formattedOutput = JSON.stringify(result.content);
+            }
+
+            this.sendToolResponse(callId, formattedOutput);
+
+        } catch (error) {
+            console.error(`[AzureWebSocket] MCP tool call failed:`, error);
+            this.sendToolResponse(callId, {
+                error: error.message
+            });
+        }
+    }
+
+    sendToolResponse(callId, output) {
+        const outputString = typeof output === 'string' ? output : JSON.stringify(output);
+
+        console.log('[AzureWebSocket] Sending tool response for call:', callId);
+
+        // Send function output to Azure
+        this.send({
+            type: 'conversation.item.create',
+            item: {
+                type: 'function_call_output',
+                call_id: callId,
+                output: outputString
+            }
+        });
+
+        // Request the AI to continue its response
+        this.send({
+            type: 'response.create'
+        });
     }
 
     async sendText(text) {

@@ -435,8 +435,8 @@ export class CustomizeView extends LitElement {
         // Google Search default
         this.googleSearchEnabled = true;
 
-        // Advanced mode default
-        this.advancedMode = false;
+        // Advanced mode default - enable by default
+        this.advancedMode = localStorage.getItem('advancedMode') !== 'false';
 
         // Background transparency default
         this.backgroundTransparency = 0.8;
@@ -567,6 +567,20 @@ export class CustomizeView extends LitElement {
         this.layoutMode = e.target.value;
         localStorage.setItem('layoutMode', this.layoutMode);
         this.onLayoutModeChange(e.target.value);
+    }
+
+    handleAudioModeChange(e) {
+        const mode = e.target.value;
+        localStorage.setItem('audioMode', mode);
+
+        if (window.require) {
+            try {
+                const { ipcRenderer } = window.require('electron');
+                ipcRenderer.invoke('set-audio-mode', mode);
+            } catch (error) {
+                console.warn('Failed to sync audio mode with main process:', error);
+            }
+        }
     }
 
     handleCustomPromptInput(e) {
@@ -917,7 +931,7 @@ export class CustomizeView extends LitElement {
                     <div class="form-grid">
                         <div class="form-group">
                             <label class="form-label">Audio Mode</label>
-                            <select class="form-control" .value=${localStorage.getItem('audioMode') || 'speaker_only'} @change=${e => localStorage.setItem('audioMode', e.target.value)}>
+                            <select class="form-control" .value=${localStorage.getItem('audioMode') || 'speaker_only'} @change=${this.handleAudioModeChange}>
                                 <option value="speaker_only">Speaker Only (Interviewer)</option>
                                 <option value="mic_only">Microphone Only (Me)</option>
                                 <option value="both">Both Speaker & Microphone</option>

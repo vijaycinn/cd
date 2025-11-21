@@ -5,7 +5,7 @@ module.exports = {
     packagerConfig: {
         asar: true,
         extraResource: ['./src/assets/SystemAudioDump'],
-        name: 'CdContainer',
+    name: 'SoundBoard',
         icon: 'src/assets/logo',
         // use `security find-identity -v -p codesigning` to find your identity
         // for macos signing
@@ -30,9 +30,9 @@ module.exports = {
         {
             name: '@electron-forge/maker-squirrel',
             config: {
-                name: 'cd-container',
-                productName: 'CdContainer',
-                shortcutName: 'CdContainer',
+                name: 'sound-board',
+                productName: 'Sound Board',
+                shortcutName: 'Sound Board',
                 createDesktopShortcut: true,
                 createStartMenuShortcut: true,
             },
@@ -46,10 +46,10 @@ module.exports = {
             platforms: ['linux'],
             config: {
                 options: {
-                    name: 'CdContainer',
-                    productName: 'CdContainer',
-                    genericName: 'CD Assistant',
-                    description: 'CD assistant',
+                    name: 'SoundBoard',
+                    productName: 'Sound Board',
+                    genericName: 'Sound Board Assistant',
+                    description: 'Sound Board assistant',
                     categories: ['Development', 'Education'],
                     icon: 'src/assets/logo.png'
                 }

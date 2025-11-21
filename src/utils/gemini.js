@@ -33,6 +33,42 @@ let maxReconnectionAttempts = 3;
 let reconnectionDelay = 2000; // 2 seconds between attempts
 let lastSessionParams = null;
 
+const GEMINI_TEXT_TURN_COMPLETE_DELAY_MS = 200;
+const GEMINI_AUDIO_TURN_COMPLETE_DELAY_MS = 1000;
+
+let turnCompletionTimer = null;
+let sessionRefForTurnCompletion = null;
+
+function clearTurnCompletionTimer() {
+    if (turnCompletionTimer) {
+        clearTimeout(turnCompletionTimer);
+        turnCompletionTimer = null;
+    }
+}
+
+function scheduleTurnCompletion(delayMs = GEMINI_AUDIO_TURN_COMPLETE_DELAY_MS) {
+    if (!sessionRefForTurnCompletion?.current) {
+        return;
+    }
+
+    clearTurnCompletionTimer();
+
+    turnCompletionTimer = setTimeout(async () => {
+        if (!sessionRefForTurnCompletion?.current) {
+            turnCompletionTimer = null;
+            return;
+        }
+
+        try {
+            await sessionRefForTurnCompletion.current.sendClientContent({ turnComplete: true });
+        } catch (error) {
+            console.error('Error sending Gemini turn completion:', error);
+        } finally {
+            turnCompletionTimer = null;
+        }
+    }, delayMs);
+}
+
 function sendToRenderer(channel, data) {
     const windows = BrowserWindow.getAllWindows();
     if (windows.length > 0) {
@@ -42,6 +78,7 @@ function sendToRenderer(channel, data) {
 
 // Conversation management functions
 function initializeNewSession() {
+    clearTurnCompletionTimer();
     currentSessionId = Date.now().toString();
     currentTranscription = '';
     conversationHistory = [];
@@ -284,6 +321,8 @@ async function initializeGeminiSession(apiKey, customPrompt = '', profile = 'int
                 onerror: function (e) {
                     console.debug('Error:', e.message);
 
+                    clearTurnCompletionTimer();
+
                     // Check if the error is related to invalid API key
                     const isApiKeyError =
                         e.message &&
@@ -304,6 +343,8 @@ async function initializeGeminiSession(apiKey, customPrompt = '', profile = 'int
                 },
                 onclose: function (e) {
                     console.debug('Session closed:', e.reason);
+
+                    clearTurnCompletionTimer();
 
                     // Check if the session closed due to invalid API key
                     const isApiKeyError =
@@ -452,7 +493,7 @@ async function startMacOSAudioCapture(geminiSessionRef) {
 
             const monoChunk = CHANNELS === 2 ? convertStereoToMono(chunk) : chunk;
             const base64Data = monoChunk.toString('base64');
-            sendAudioToGemini(base64Data, geminiSessionRef);
+            sendAudioToGemini(base64Data);
 
             if (process.env.DEBUG_AUDIO) {
                 console.log(`Processed audio chunk: ${chunk.length} bytes`);
@@ -503,25 +544,40 @@ function stopMacOSAudioCapture() {
     }
 }
 
-async function sendAudioToGemini(base64Data, geminiSessionRef) {
-    if (!geminiSessionRef.current) return;
+async function handleGeminiAudioChunk({ data, mimeType }, marker = '.') {
+    if (!sessionRefForTurnCompletion?.current) {
+        return { success: false, error: 'No active Gemini session' };
+    }
 
     try {
-        process.stdout.write('.');
-        await geminiSessionRef.current.sendRealtimeInput({
-            audio: {
-                data: base64Data,
-                mimeType: 'audio/pcm;rate=24000',
-            },
+        if (marker) {
+            process.stdout.write(marker);
+        }
+
+        await sessionRefForTurnCompletion.current.sendRealtimeInput({
+            audio: { data, mimeType },
         });
+
+        scheduleTurnCompletion(GEMINI_AUDIO_TURN_COMPLETE_DELAY_MS);
+        return { success: true };
     } catch (error) {
         console.error('Error sending audio to Gemini:', error);
+        return { success: false, error: error.message };
     }
+}
+
+async function handleGeminiMicAudioChunk(payload) {
+    return handleGeminiAudioChunk(payload, ',');
+}
+
+async function sendAudioToGemini(base64Data) {
+    await handleGeminiAudioChunk({ data: base64Data, mimeType: 'audio/pcm;rate=24000' });
 }
 
 function setupGeminiIpcHandlers(geminiSessionRef) {
     // Store the geminiSessionRef globally for reconnection access
     global.geminiSessionRef = geminiSessionRef;
+    sessionRefForTurnCompletion = geminiSessionRef;
 
     ipcMain.handle('initialize-gemini', async (event, apiKey, customPrompt, profile = 'interview', language = 'en-US') => {
         const session = await initializeGeminiSession(apiKey, customPrompt, profile, language);
@@ -532,34 +588,10 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
         return false;
     });
 
-    ipcMain.handle('send-audio-content', async (event, { data, mimeType }) => {
-        if (!geminiSessionRef.current) return { success: false, error: 'No active Gemini session' };
-        try {
-            process.stdout.write('.');
-            await geminiSessionRef.current.sendRealtimeInput({
-                audio: { data: data, mimeType: mimeType },
-            });
-            return { success: true };
-        } catch (error) {
-            console.error('Error sending system audio:', error);
-            return { success: false, error: error.message };
-        }
-    });
+    ipcMain.handle('send-audio-content', async (event, payload) => handleGeminiAudioChunk(payload));
 
     // Handle microphone audio on a separate channel
-    ipcMain.handle('send-mic-audio-content', async (event, { data, mimeType }) => {
-        if (!geminiSessionRef.current) return { success: false, error: 'No active Gemini session' };
-        try {
-            process.stdout.write(',');
-            await geminiSessionRef.current.sendRealtimeInput({
-                audio: { data: data, mimeType: mimeType },
-            });
-            return { success: true };
-        } catch (error) {
-            console.error('Error sending mic audio:', error);
-            return { success: false, error: error.message };
-        }
-    });
+    ipcMain.handle('send-mic-audio-content', async (event, payload) => handleGeminiMicAudioChunk(payload));
 
     ipcMain.handle('send-image-content', async (event, { data, debug }) => {
         if (!geminiSessionRef.current) return { success: false, error: 'No active Gemini session' };
@@ -582,6 +614,8 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
                 media: { data: data, mimeType: 'image/jpeg' },
             });
 
+            scheduleTurnCompletion(GEMINI_TEXT_TURN_COMPLETE_DELAY_MS);
+
             return { success: true };
         } catch (error) {
             console.error('Error sending image:', error);
@@ -599,6 +633,7 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
 
             console.log('Sending text message:', text);
             await geminiSessionRef.current.sendRealtimeInput({ text: text.trim() });
+            scheduleTurnCompletion(GEMINI_TEXT_TURN_COMPLETE_DELAY_MS);
             return { success: true };
         } catch (error) {
             console.error('Error sending text:', error);
@@ -684,6 +719,8 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
             return { success: false, error: error.message };
         }
     });
+
+
 }
 
 module.exports = {
@@ -700,6 +737,8 @@ module.exports = {
     convertStereoToMono,
     stopMacOSAudioCapture,
     sendAudioToGemini,
+    handleGeminiAudioChunk,
+    handleGeminiMicAudioChunk,
     setupGeminiIpcHandlers,
     attemptReconnection,
     formatSpeakerResults,

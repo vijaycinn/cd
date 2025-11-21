@@ -15,14 +15,14 @@ function getConfigDir() {
     let configDir;
     
     if (platform === 'win32') {
-        // Windows: %APPDATA%\cheating-daddy-config
-        configDir = path.join(os.homedir(), 'AppData', 'Roaming', 'cheating-daddy-config');
+        // Windows: %APPDATA%\sound-board-config
+        configDir = path.join(os.homedir(), 'AppData', 'Roaming', 'sound-board-config');
     } else if (platform === 'darwin') {
-        // macOS: ~/Library/Application Support/cheating-daddy-config
-        configDir = path.join(os.homedir(), 'Library', 'Application Support', 'cheating-daddy-config');
+        // macOS: ~/Library/Application Support/sound-board-config
+        configDir = path.join(os.homedir(), 'Library', 'Application Support', 'sound-board-config');
     } else {
-        // Linux and others: ~/.config/cheating-daddy-config
-        configDir = path.join(os.homedir(), '.config', 'cheating-daddy-config');
+        // Linux and others: ~/.config/sound-board-config
+        configDir = path.join(os.homedir(), '.config', 'sound-board-config');
     }
     
     return configDir;

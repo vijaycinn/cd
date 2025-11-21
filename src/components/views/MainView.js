@@ -122,6 +122,40 @@ export class MainView extends LitElement {
             line-height: 1.5;
         }
 
+        .provider-select {
+            margin-bottom: 20px;
+        }
+
+        .provider-dropdown {
+            background: var(--input-background);
+            color: var(--text-color);
+            border: 1px solid var(--button-border);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            width: 100%;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 16px;
+            padding-right: 32px;
+        }
+
+        .provider-dropdown:focus {
+            outline: none;
+            border-color: var(--focus-border-color);
+            box-shadow: 0 0 0 2px var(--focus-box-shadow);
+        }
+
+        .provider-dropdown:hover {
+            border-color: rgba(255, 255, 255, 0.25);
+            background-color: rgba(0, 0, 0, 0.35);
+        }
+
         .link {
             color: var(--link-color);
             text-decoration: underline;
@@ -149,6 +183,8 @@ export class MainView extends LitElement {
         isInitializing: { type: Boolean },
         onLayoutModeChange: { type: Function },
         showApiKeyError: { type: Boolean },
+        llmService: { type: String },
+        azureConfigComplete: { type: Boolean }
     };
 
     constructor() {
@@ -159,6 +195,10 @@ export class MainView extends LitElement {
         this.onLayoutModeChange = () => {};
         this.showApiKeyError = false;
         this.boundKeydownHandler = this.handleKeydown.bind(this);
+        this.azureConfigComplete = false;
+
+        // Initialize settings from main process
+        this.initializeSettings();
     }
 
     connectedCallback() {
@@ -194,17 +234,129 @@ export class MainView extends LitElement {
     }
 
     handleInput(e) {
-        localStorage.setItem('apiKey', e.target.value);
+        const key = this.llmService === 'azure' ? 'azureApiKey' : 'geminiApiKey';
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(key, e.target.value);
+        }
+        if (window.electron?.ipcRenderer?.invoke) {
+            window.electron.ipcRenderer
+                .invoke('set-setting', {
+                    key,
+                    value: e.target.value
+                })
+                .catch(error => console.warn('Failed to persist setting', key, error?.message));
+        }
         // Clear error state when user starts typing
         if (this.showApiKeyError) {
             this.showApiKeyError = false;
         }
     }
 
-    handleStartClick() {
+    async initializeSettings() {
+        // Get initial settings (prefer persisted store, fall back to localStorage)
+        if (window.electron?.ipcRenderer?.invoke) {
+            try {
+                this.llmService = (await window.electron.ipcRenderer.invoke('get-setting', 'llmService')) || localStorage.getItem('llmService') || 'gemini';
+            } catch (error) {
+                console.warn('Falling back to localStorage for llmService:', error?.message);
+                this.llmService = localStorage.getItem('llmService') || 'gemini';
+            }
+        } else {
+            this.llmService = localStorage.getItem('llmService') || 'gemini';
+        }
+        await this.validateAzureConfig();
+        this.requestUpdate();
+    }
+
+    handleProviderChange(e) {
+        const newProvider = e.target.value;
+        this.llmService = newProvider;
+        if (window.electron?.ipcRenderer?.invoke) {
+            window.electron.ipcRenderer
+                .invoke('set-setting', {
+                    key: 'llmService',
+                    value: newProvider
+                })
+                .catch(error => console.warn('Failed to persist llmService', error?.message));
+        } else {
+            localStorage.setItem('llmService', newProvider);
+        }
+        
+        if (newProvider === 'azure') {
+            this.validateAzureConfig();
+        }
+        this.requestUpdate();
+    }
+
+    async validateAzureConfig() {
+        let azureApiKey = '';
+        let azureEndpoint = '';
+        let azureDeployment = '';
+
+        if (window.electron?.ipcRenderer?.invoke) {
+            try {
+                azureApiKey = await window.electron.ipcRenderer.invoke('get-setting', 'azureApiKey');
+            } catch (error) {
+                console.warn('Falling back to localStorage for azureApiKey:', error?.message);
+            }
+            try {
+                azureEndpoint = await window.electron.ipcRenderer.invoke('get-setting', 'azureEndpoint');
+            } catch (error) {
+                console.warn('Falling back to localStorage for azureEndpoint:', error?.message);
+            }
+            try {
+                azureDeployment = await window.electron.ipcRenderer.invoke('get-setting', 'azureDeployment');
+            } catch (error) {
+                console.warn('Falling back to localStorage for azureDeployment:', error?.message);
+            }
+        }
+
+        if (!azureApiKey && typeof localStorage !== 'undefined') {
+            azureApiKey = localStorage.getItem('azureApiKey');
+        }
+
+        if (!azureEndpoint && typeof localStorage !== 'undefined') {
+            azureEndpoint = localStorage.getItem('azureEndpoint');
+        }
+
+        if (!azureDeployment && typeof localStorage !== 'undefined') {
+            azureDeployment = localStorage.getItem('azureDeployment');
+        }
+
+        let azureRegion = '';
+        if (window.electron?.ipcRenderer?.invoke) {
+            try {
+                azureRegion = await window.electron.ipcRenderer.invoke('get-setting', 'azureRegion');
+            } catch (error) {
+                console.warn('Falling back to localStorage for azureRegion:', error?.message);
+            }
+        }
+
+        if (!azureRegion && typeof localStorage !== 'undefined') {
+            azureRegion = localStorage.getItem('azureRegion');
+        }
+
+        if (!azureRegion) {
+            azureRegion = 'eastus2';
+        }
+
+        this.azureConfigComplete = !!(azureApiKey && azureEndpoint && azureDeployment && azureRegion);
+        return this.azureConfigComplete;
+    }
+
+    async handleStartClick() {
         if (this.isInitializing) {
             return;
         }
+
+        if (this.llmService === 'azure') {
+            const isValidAzureConfig = await this.validateAzureConfig();
+            if (!isValidAzureConfig) {
+                this.triggerApiKeyError();
+                return;
+            }
+        }
+
         this.onStart();
     }
 
@@ -233,6 +385,13 @@ export class MainView extends LitElement {
         setTimeout(() => {
             this.showApiKeyError = false;
         }, 1000);
+    }
+
+    // Method to trigger Azure credential error (for Azure service)
+    triggerAzureCredentialError() {
+        // For Azure, we could show a different UI indication or just log it
+        console.log('Azure credentials are missing or invalid');
+        // You could add visual feedback here if needed
     }
 
     getStartButtonText() {
@@ -281,25 +440,74 @@ export class MainView extends LitElement {
         }
     }
 
+    getApiKeyPlaceholder() {
+        switch (this.llmService) {
+            case 'azure':
+                return 'Azure OpenAI credentials configured in Advanced settings';
+            case 'gemini':
+            default:
+                return 'Enter your Gemini API Key';
+        }
+    }
+
+    getApiKeyStorageKey() {
+        switch (this.llmService) {
+            case 'azure':
+                return 'azureApiKey';
+            case 'gemini':
+            default:
+                return 'apiKey';
+        }
+    }
+
     render() {
+        const placeholder = this.getApiKeyPlaceholder();
+        const storageKey = this.getApiKeyStorageKey();
+        const currentValue = localStorage.getItem(storageKey) || '';
+        
+        // For Azure, we don't show the input field since credentials are in Advanced settings
+        const showInputField = this.llmService !== 'azure';
+
         return html`
+            <div class="input-group provider-select">
+                <select 
+                    class="provider-dropdown"
+                    .value=${this.llmService}
+                    @change=${this.handleProviderChange}
+                >
+                    <option value="gemini">Gemini Live</option>
+                    <option value="azure">Azure OpenAI</option>
+                </select>
+            </div>
             <div class="welcome">Welcome</div>
 
-            <div class="input-group">
-                <input
-                    type="password"
-                    placeholder="Enter your Gemini API Key"
-                    .value=${localStorage.getItem('apiKey') || ''}
-                    @input=${this.handleInput}
-                    class="${this.showApiKeyError ? 'api-key-error' : ''}"
-                />
-                <button @click=${this.handleStartClick} class="start-button ${this.isInitializing ? 'initializing' : ''}">
-                    ${this.getStartButtonText()}
-                </button>
-            </div>
+            ${showInputField ? html`
+                <div class="input-group">
+                    <input
+                        type="password"
+                        placeholder="${placeholder}"
+                        .value=${currentValue}
+                        @input=${this.handleInput}
+                        class="${this.showApiKeyError ? 'api-key-error' : ''}"
+                    />
+                    <button @click=${this.handleStartClick} class="start-button ${this.isInitializing ? 'initializing' : ''}">
+                        ${this.getStartButtonText()}
+                    </button>
+                </div>
+            ` : html`
+                <div class="input-group">
+                    <button @click=${this.handleStartClick} class="start-button ${this.isInitializing ? 'initializing' : ''}">
+                        ${this.getStartButtonText()}
+                    </button>
+                </div>
+            `}
             <p class="description">
-                dont have an api key?
-                <span @click=${this.handleAPIKeyHelpClick} class="link">get one here</span>
+                ${this.llmService === 'gemini' ? html`
+                    dont have an api key?
+                    <span @click=${this.handleAPIKeyHelpClick} class="link">get one here</span>
+                ` : this.llmService === 'azure' ? html`
+                    configure azure credentials in <span @click=${() => {}} class="link">advanced settings</span>
+                ` : ''}
             </p>
         `;
     }

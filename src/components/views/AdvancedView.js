@@ -327,6 +327,11 @@ export class AdvancedView extends LitElement {
         maxTokensPerMin: { type: Number },
         throttleAtPercent: { type: Number },
         contentProtection: { type: Boolean },
+        llmService: { type: String },
+        azureApiKey: { type: String },
+        azureEndpoint: { type: String },
+    azureRegion: { type: String },
+    azureDeployment: { type: String },
     };
 
     constructor() {
@@ -342,6 +347,13 @@ export class AdvancedView extends LitElement {
 
         // Content protection default
         this.contentProtection = true;
+
+        // LLM Service defaults
+        this.llmService = localStorage.getItem('llmService') || 'gemini';
+    this.azureApiKey = localStorage.getItem('azureApiKey') || '';
+    this.azureEndpoint = localStorage.getItem('azureEndpoint') || '';
+    this.azureRegion = localStorage.getItem('azureRegion') || '';
+    this.azureDeployment = localStorage.getItem('azureDeployment') || '';
 
         this.loadRateLimitSettings();
         this.loadContentProtectionSetting();
@@ -475,7 +487,7 @@ export class AdvancedView extends LitElement {
     async handleContentProtectionChange(e) {
         this.contentProtection = e.target.checked;
         localStorage.setItem('contentProtection', this.contentProtection.toString());
-        
+
         // Update the window's content protection in real-time
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
@@ -485,7 +497,14 @@ export class AdvancedView extends LitElement {
                 console.error('Failed to update content protection:', error);
             }
         }
-        
+
+        this.requestUpdate();
+    }
+
+    handleInputChange(e) {
+        const { name, value } = e.target;
+        this[name] = value;
+        localStorage.setItem(name, value);
         this.requestUpdate();
     }
 
@@ -597,7 +616,43 @@ export class AdvancedView extends LitElement {
                     </div>
                 </div>
 
+                <!-- LLM Service Section -->
+                <div class="advanced-section">
+                    <div class="section-title">
+                        <span>⚙️ LLM Service</span>
+                    </div>
+                    <div class="advanced-description">
+                        Configure which Language Learning Model service to use.
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="llmService" class="form-label">LLM Service</label>
+                            <select name="llmService" id="llmService" class="form-control" .value=${this.llmService} @change=${this.handleInputChange}>
+                                <option value="gemini">Gemini</option>
+                                <option value="azure">Azure OpenAI</option>
+                            </select>
+                        </div>
 
+                        ${this.llmService === 'azure' ? html`
+                            <div class="form-group">
+                                <label class="form-label">Azure API Key</label>
+                                <input type="password" name="azureApiKey" class="form-control" .value=${this.azureApiKey} @input=${this.handleInputChange}>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Azure Endpoint</label>
+                                <input type="text" name="azureEndpoint" class="form-control" .value=${this.azureEndpoint} @input=${this.handleInputChange} placeholder="https://your-resource.openai.azure.com/">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Azure Region</label>
+                                <input type="text" name="azureRegion" class="form-control" .value=${this.azureRegion} @input=${this.handleInputChange} placeholder="eastus2">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Deployment Name</label>
+                                <input type="text" name="azureDeployment" class="form-control" .value=${this.azureDeployment} @input=${this.handleInputChange} placeholder="e.g., gpt-5-mini">
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
 
                 <!-- Data Management Section -->
                 <div class="advanced-section danger-section">

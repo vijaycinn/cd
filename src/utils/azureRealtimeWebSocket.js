@@ -140,9 +140,19 @@ class AzureRealtimeWebSocketService extends LLMService {
 
     getTurnDetectionConfig() {
         const serverVad = this.azureRealtimeSettings.serverVad;
+        
+        // Check if server VAD is enabled
+        if (serverVad.enabled === false) {
+            // VAD disabled - client must manually commit and create responses
+            return { type: 'none' };
+        }
+        
+        // Server VAD enabled - use configured type (server_vad, semantic_vad, etc.)
+        const vadType = serverVad.type || 'server_vad';
+        
         return {
-            type: 'server_vad',
-            create_response: serverVad.createResponse,
+            type: vadType,
+            create_response: serverVad.createResponse !== false, // Default true
             threshold: serverVad.threshold,
             prefix_padding_ms: serverVad.prefixPaddingMs,
             silence_duration_ms: serverVad.silenceDurationMs
@@ -612,12 +622,14 @@ class AzureRealtimeWebSocketService extends LLMService {
 
             case 'input_audio_buffer.speech_stopped':
                 this.speechActive = false;
-                this.debugLog('[AzureWebSocket] Speech stopped (server VAD)');
+                this.debugLog('[AzureWebSocket] Speech stopped (server VAD) - server will auto-commit');
+                // With server VAD enabled, the server automatically commits the buffer.
+                // DO NOT manually call commitAudioBuffer() here - it causes buffer size errors.
+                // The server will send input_audio_buffer.committed when ready.
                 {
-                    const flushed = this.flushAudioAccumulator({ force: true, context: 'speech_stopped' });
-                    if (flushed !== false) {
-                        this.commitAudioBuffer('speech_stopped');
-                    }
+                    // Flush any remaining client-side buffered audio chunks to server
+                    this.flushAudioAccumulator({ force: true, context: 'speech_stopped' });
+                    // Note: No manual commit needed - server VAD handles this automatically
                 }
                 if (this.callbacks.onStatus) {
                     this.callbacks.onStatus('Processing...');
@@ -625,9 +637,11 @@ class AzureRealtimeWebSocketService extends LLMService {
                 break;
 
             case 'input_audio_buffer.committed':
-                this.debugLog('[AzureWebSocket] Server acknowledged audio commit');
+                this.debugLog('[AzureWebSocket] Server acknowledged audio commit (server auto-committed with VAD)');
+                // Server has committed the buffer - audio is now part of conversation
                 this.pendingAudioForCommit = false;
-                 this.bytesSinceLastCommit = 0;
+                this.bytesSinceLastCommit = 0;
+                // conversation.item.created event will follow with the user message item
                 break;
 
             case 'input_audio_buffer.commit_failed':

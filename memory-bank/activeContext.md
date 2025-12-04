@@ -8,15 +8,16 @@
 ## Current Focus
 
 ### Active PRD
-`tasks/prd-azure-webrtc-integration.md`
+`plan/feature-azure-voice-live-vad-1.md` - Azure Voice Live VAD Implementation
 
 ### Active Task List
-`tasks/tasks-azure-webrtc-integration.md`
+Managed via task tracking system - 51 tasks across 8 implementation phases
 
 ### Current Active Sub-task
-**5.0 Integration and Testing - Finalized WebRTC Feature**
-- [ ] 5.1 Update UI provider selection to support WebRTC Azure mode
-- [ ] 5.2 Align Azure realtime VAD pipeline with Gemini behaviour (active)
+**Phase 1: Core VAD Event Handling** (Starting)
+- Implement proper handling of Azure's server-side VAD events
+- Add responseInProgress and audioAppendedSinceLastCommit flags
+- Synchronize audio commits with turn detection events
 
 ## Recent Critical Decisions
 
@@ -54,7 +55,13 @@
 4. **Error Handling**: Enhanced error logging with detailed error information
 
 ### In Progress
-- Azure realtime VAD parity work (see `memory-bank/azure-realtime-vad-plan.md`)
+- **Azure Voice Live VAD Implementation** (see `plan/feature-azure-voice-live-vad-1.md`)
+  - Status: Phase 1 - Critical Fixes Applied ✅
+  - **FIXED:** Removed manual `commitAudioBuffer()` call that was causing "buffer too small" errors
+  - **FIXED:** Server VAD now properly auto-commits - no manual intervention needed
+  - **UPDATED:** Configuration now includes `serverVad.enabled` and `serverVad.type` options
+  - **UPDATED:** Added support for semantic_vad mode for better turn detection
+  - Next: Complete remaining VAD tasks and test with semantic_vad
 
 ## Current Implementation State
 

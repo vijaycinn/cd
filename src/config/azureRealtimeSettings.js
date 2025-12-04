@@ -46,14 +46,25 @@ const DEFAULT_TEMPLATE = {
         warmupDrops: 3
     },
     commits: {
-        _comment: 'Controls how and when audio commits are issued to Azure.',
+        _comment: [
+            'Client-side commit controls (only used when server VAD is disabled).',
+            'When serverVad.enabled is true, the server automatically commits audio.',
+            'Manual commits are NOT needed and will cause buffer size errors.'
+        ],
         minCommitMs: 100,
         minCommitBytes: null,
         padSilence: true,
         tailSilenceMs: 120
     },
     serverVad: {
-        _comment: 'Server VAD parameters used when turn detection is enabled.',
+        _comment: [
+            'Server-side Voice Activity Detection settings.',
+            'When enabled, server detects speech start/stop and auto-commits audio.',
+            'Supported types: server_vad (silence), semantic_vad (utterance-based)',
+            'createResponse: true = auto-generate response, false = manual control'
+        ],
+        enabled: true,
+        type: 'server_vad',
         threshold: 0.5,
         prefixPaddingMs: 300,
         silenceDurationMs: 200,

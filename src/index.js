@@ -308,4 +308,41 @@ function setupGeneralIpcHandlers() {
             return { success: false, error: error.message };
         }
     });
+
+    // Task 0.3.1: Pause Azure audio transmission
+    ipcMain.handle('azure-pause-audio', async event => {
+        console.log('[index.js] azure-pause-audio called');
+        try {
+            const result = audioRouter.pauseAzureAudio();
+            console.log('[index.js] Pause result:', result);
+            return result;
+        } catch (error) {
+            console.error('[index.js] Error pausing Azure audio:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Task 0.3.1: Resume Azure audio transmission
+    ipcMain.handle('azure-resume-audio', async event => {
+        console.log('[index.js] azure-resume-audio called');
+        try {
+            const result = audioRouter.resumeAzureAudio();
+            console.log('[index.js] Resume result:', result);
+            return result;
+        } catch (error) {
+            console.error('[index.js] Error resuming Azure audio:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Task 0.3.1: Get Azure audio pause state
+    ipcMain.handle('azure-get-pause-state', async event => {
+        try {
+            const isPaused = audioRouter.isAudioPaused();
+            return { success: true, isPaused };
+        } catch (error) {
+            console.error('[index.js] Error getting pause state:', error);
+            return { success: false, error: error.message };
+        }
+    });
 }

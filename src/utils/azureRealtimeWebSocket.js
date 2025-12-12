@@ -84,6 +84,9 @@ class AzureRealtimeWebSocketService extends LLMService {
         this.debugEnabled = !!this.azureRealtimeSettings.debug;
         this.minAudioChunkBytes = streamingSettings.minChunkBytes;
         this.speechActive = false; // Server VAD speech flag
+        this.audioPaused = false; // Pause state flag
+        this.pauseRequested = false; // Pause request pending
+        this.resumeRequested = false; // Resume request pending
         this.silenceLogPrefix = '[AzureWebSocket] Dropping near-silent audio chunk';
 
         this.silenceGateEnabled = silenceSettings.enabled;
@@ -872,6 +875,16 @@ class AzureRealtimeWebSocketService extends LLMService {
     }
 
     async sendAudio(audioData) {
+        // Task 0.1.4: Early exit if paused
+        if (this.audioPaused) {
+            const now = Date.now();
+            if (now - (this._lastPauseWarnTs || 0) > 5000) {
+                console.log('[AzureWebSocket] Audio paused - dropping incoming chunks');
+                this._lastPauseWarnTs = now;
+            }
+            return true; // Return success to avoid breaking audio pipeline
+        }
+
         if (!this.isInitialized || !this.socket) {
             throw new Error('Azure WebSocket not initialized');
         }
@@ -1049,6 +1062,74 @@ class AzureRealtimeWebSocketService extends LLMService {
         this.consecutiveSilentDrops = 0;
         this.logMetrics(`commit:${context}`);
         return true;
+    }
+
+    /**
+     * Task 0.1.2: Pause audio transmission
+     * Flushes pending audio and optionally forces commit based on VAD mode
+     */
+    pauseAudio() {
+        if (this.audioPaused) {
+            console.log('[AzureWebSocket] Already paused');
+            return { success: true, alreadyPaused: true };
+        }
+
+        console.log('[AzureWebSocket] Pausing audio transmission...');
+        this.audioPaused = true;
+        this.pauseRequested = true;
+
+        // Flush any pending audio chunks
+        const flushed = this.flushAudioAccumulator();
+        console.log('[AzureWebSocket] Flushed %d accumulated chunks on pause', flushed);
+
+        // Force commit if configured and VAD is enabled
+        const settings = this.settings?.pauseButton || {};
+        if (settings.forceCommitOnPause && this.serverVadEnabled && this.pendingAudioForCommit) {
+            console.log('[AzureWebSocket] Forcing commit on pause (VAD enabled)');
+            this.commitAudioBuffer('pause_button', { forceTailPadding: true });
+        }
+
+        // Update status via callback
+        if (this.onStatusUpdate) {
+            this.onStatusUpdate('Audio paused');
+        }
+
+        console.log('[AzureWebSocket] Audio transmission paused');
+        return { success: true, flushedChunks: flushed };
+    }
+
+    /**
+     * Task 0.1.3: Resume audio transmission
+     */
+    resumeAudio() {
+        if (!this.audioPaused) {
+            console.log('[AzureWebSocket] Not paused');
+            return { success: true, notPaused: true };
+        }
+
+        console.log('[AzureWebSocket] Resuming audio transmission...');
+        this.audioPaused = false;
+        this.resumeRequested = true;
+        this._lastPauseWarnTs = 0; // Reset throttle
+
+        // Clear audio accumulators to start fresh
+        this.pendingChunkAccumulator.length = 0;
+        this.bytesInPendingChunks = 0;
+
+        // Update status via callback
+        if (this.onStatusUpdate) {
+            this.onStatusUpdate('Audio resumed');
+        }
+
+        console.log('[AzureWebSocket] Audio transmission resumed');
+        return { success: true };
+    }
+
+    /**
+     * Get current pause state
+     */
+    isPaused() {
+        return this.audioPaused;
     }
 
     clearFlushTimer() {

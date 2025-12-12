@@ -144,6 +144,36 @@ class AudioRouter {
     isGeminiActive() {
         return this.geminiSessionRef?.current !== null;
     }
+
+    /**
+     * Task 0.2.1: Pause Azure audio transmission
+     */
+    pauseAzureAudio() {
+        if (!this.azureServiceRef?.current) {
+            return { success: false, error: 'No Azure service active' };
+        }
+        return this.azureServiceRef.current.pauseAudio();
+    }
+
+    /**
+     * Task 0.2.1: Resume Azure audio transmission
+     */
+    resumeAzureAudio() {
+        if (!this.azureServiceRef?.current) {
+            return { success: false, error: 'No Azure service active' };
+        }
+        return this.azureServiceRef.current.resumeAudio();
+    }
+
+    /**
+     * Task 0.2.1: Get Azure audio pause state
+     */
+    isAudioPaused() {
+        if (!this.azureServiceRef?.current) {
+            return false;
+        }
+        return this.azureServiceRef.current.isPaused();
+    }
 }
 
 module.exports = { AudioRouter };

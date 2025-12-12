@@ -116,6 +116,8 @@ export class SoundBoardApp extends LitElement {
         _isClickThrough: { state: true },
         _awaitingNewResponse: { state: true },
         shouldAnimateResponse: { type: Boolean },
+        // Task 0.4.2: Pause button state
+        audioPaused: { type: Boolean },
     };
 
     constructor() {
@@ -131,6 +133,7 @@ export class SoundBoardApp extends LitElement {
         this.selectedImageQuality = localStorage.getItem('selectedImageQuality') || 'medium';
         this.layoutMode = localStorage.getItem('layoutMode') || 'normal';
         this.advancedMode = localStorage.getItem('advancedMode') !== 'false'; // Enable by default unless explicitly disabled
+        this.llmService = localStorage.getItem('llmService') || 'gemini'; // Initialize llmService
         this.responses = [];
         this.currentResponseIndex = -1;
         this._viewInstances = new Map();
@@ -138,6 +141,8 @@ export class SoundBoardApp extends LitElement {
         this._awaitingNewResponse = false;
         this._currentResponseIsComplete = true;
         this.shouldAnimateResponse = false;
+        // Task 0.4.2: Initialize pause state
+        this.audioPaused = false;
 
         // Apply layout mode to document root
         this.updateLayoutMode();
@@ -270,10 +275,53 @@ export class SoundBoardApp extends LitElement {
         }
     }
 
+    /**
+     * Task 0.4.2: Handle pause/resume button click
+     */
+    async handlePauseClick() {
+        if (!window.require) return;
+
+        const { ipcRenderer } = window.require('electron');
+        const llmService = localStorage.getItem('llmService') || 'gemini';
+
+        // Only works with Azure
+        if (llmService !== 'azure') {
+            console.log('[SoundBoardApp] Pause only available for Azure provider');
+            return;
+        }
+
+        try {
+            if (this.audioPaused) {
+                // Resume audio
+                console.log('[SoundBoardApp] Resuming audio...');
+                const result = await ipcRenderer.invoke('azure-resume-audio');
+                if (result.success) {
+                    this.audioPaused = false;
+                    console.log('[SoundBoardApp] Audio resumed');
+                } else {
+                    console.error('[SoundBoardApp] Failed to resume:', result.error);
+                }
+            } else {
+                // Pause audio
+                console.log('[SoundBoardApp] Pausing audio...');
+                const result = await ipcRenderer.invoke('azure-pause-audio');
+                if (result.success) {
+                    this.audioPaused = true;
+                    console.log('[SoundBoardApp] Audio paused');
+                } else {
+                    console.error('[SoundBoardApp] Failed to pause:', result.error);
+                }
+            }
+        } catch (error) {
+            console.error('[SoundBoardApp] Error toggling pause:', error);
+        }
+    }
+
     // Main view event handlers
     async handleStart() {
         console.log('[SoundBoardApp] handleStart called');
         const llmService = localStorage.getItem('llmService') || 'gemini';
+        this.llmService = llmService; // Update component property
         console.log(`[SoundBoardApp] llmService from localStorage: ${llmService}`);
         let apiKey;
 
@@ -553,6 +601,9 @@ export class SoundBoardApp extends LitElement {
                         .onCloseClick=${() => this.handleClose()}
                         .onBackClick=${() => this.handleBackClick()}
                         .onHideToggleClick=${() => this.handleHideToggle()}
+                        .onPauseClick=${() => this.handlePauseClick()}
+                        .llmProvider=${this.llmService || 'gemini'}
+                        .audioPaused=${this.audioPaused}
                         ?isClickThrough=${this._isClickThrough}
                     ></app-header>
                     <div class="${mainContentClass}">

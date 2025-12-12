@@ -69,6 +69,16 @@ const DEFAULT_TEMPLATE = {
         prefixPaddingMs: 300,
         silenceDurationMs: 200,
         createResponse: true
+    },
+    pauseButton: {
+        _comment: [
+            'Pause button feature settings (Step 0).',
+            'Allows user to pause audio transmission and process captured audio.',
+            'Only available when using Azure provider.'
+        ],
+        forceCommitOnPause: true,
+        autoResumeAfterResponse: false,
+        showInUI: true
     }
 };
 

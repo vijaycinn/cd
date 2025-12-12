@@ -101,6 +101,10 @@ export class AppHeader extends LitElement {
         isClickThrough: { type: Boolean, reflect: true },
         advancedMode: { type: Boolean },
         onAdvancedClick: { type: Function },
+        // Task 0.4.1: Pause button properties
+        llmProvider: { type: String },
+        audioPaused: { type: Boolean },
+        onPauseClick: { type: Function },
     };
 
     constructor() {
@@ -117,17 +121,24 @@ export class AppHeader extends LitElement {
         this.isClickThrough = false;
         this.advancedMode = false;
         this.onAdvancedClick = () => {};
+        // Task 0.4.1: Pause button state
+        this.llmProvider = 'gemini';
+        this.audioPaused = false;
+        this.onPauseClick = () => {};
         this._timerInterval = null;
+        this._pauseStateInterval = null;
     }
 
     connectedCallback() {
         super.connectedCallback();
         this._startTimer();
+        this._startPauseStatePolling();
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
         this._stopTimer();
+        this._stopPauseStatePolling();
     }
 
     updated(changedProperties) {
@@ -150,6 +161,11 @@ export class AppHeader extends LitElement {
                 this._stopTimer();
             }
         }
+
+        // Task 0.4.1: Restart pause polling when provider changes
+        if (changedProperties.has('llmProvider') || changedProperties.has('currentView')) {
+            this._startPauseStatePolling();
+        }
     }
 
     _startTimer() {
@@ -169,6 +185,37 @@ export class AppHeader extends LitElement {
         if (this._timerInterval) {
             clearInterval(this._timerInterval);
             this._timerInterval = null;
+        }
+    }
+
+    /**
+     * Task 0.4.1: Poll Azure pause state for UI updates
+     */
+    _startPauseStatePolling() {
+        this._stopPauseStatePolling();
+        
+        // Only poll when Azure is active
+        if (this.llmProvider === 'azure' && this.currentView === 'assistant') {
+            this._pauseStateInterval = setInterval(async () => {
+                if (window.require) {
+                    try {
+                        const { ipcRenderer } = window.require('electron');
+                        const result = await ipcRenderer.invoke('azure-get-pause-state');
+                        if (result.success && result.isPaused !== this.audioPaused) {
+                            this.audioPaused = result.isPaused;
+                        }
+                    } catch (error) {
+                        console.error('Error polling pause state:', error);
+                    }
+                }
+            }, 500); // Poll every 500ms
+        }
+    }
+
+    _stopPauseStatePolling() {
+        if (this._pauseStateInterval) {
+            clearInterval(this._pauseStateInterval);
+            this._pauseStateInterval = null;
         }
     }
 
@@ -200,6 +247,16 @@ export class AppHeader extends LitElement {
 
     render() {
         const elapsedTime = this.getElapsedTime();
+
+        // Debug logging for pause button visibility
+        if (this.currentView === 'assistant') {
+            console.log('[AppHeader] Pause button check:', {
+                currentView: this.currentView,
+                llmProvider: this.llmProvider,
+                audioPaused: this.audioPaused,
+                shouldShowPauseButton: this.llmProvider === 'azure'
+            });
+        }
 
         return html`
             <div class="header">
@@ -361,6 +418,57 @@ export class AppHeader extends LitElement {
                         : ''}
                     ${this.currentView === 'assistant'
                         ? html`
+                              ${this.llmProvider === 'azure'
+                                  ? html`
+                                        <button @click=${this.onPauseClick} class="icon-button" title="${this.audioPaused ? 'Resume Audio' : 'Pause Audio'}">
+                                            ${this.audioPaused
+                                                ? html`
+                                                      <!-- Play/Resume Icon -->
+                                                      <svg
+                                                          width="24px"
+                                                          height="24px"
+                                                          viewBox="0 0 24 24"
+                                                          fill="none"
+                                                          xmlns="http://www.w3.org/2000/svg"
+                                                          stroke="currentColor"
+                                                      >
+                                                          <path
+                                                              d="M6.90588 4.53682C6.50592 4.2998 6 4.58808 6 5.05299V18.947C6 19.4119 6.50592 19.7002 6.90588 19.4632L18.629 12.5162C19.0211 12.2838 19.0211 11.7162 18.629 11.4838L6.90588 4.53682Z"
+                                                              stroke="currentColor"
+                                                              stroke-width="1.7"
+                                                              stroke-linecap="round"
+                                                              stroke-linejoin="round"
+                                                              fill="currentColor"
+                                                          ></path>
+                                                      </svg>
+                                                  `
+                                                : html`
+                                                      <!-- Pause Icon -->
+                                                      <svg
+                                                          width="24px"
+                                                          height="24px"
+                                                          viewBox="0 0 24 24"
+                                                          fill="none"
+                                                          xmlns="http://www.w3.org/2000/svg"
+                                                          stroke="currentColor"
+                                                      >
+                                                          <path
+                                                              d="M6 18.4V5.6C6 5.26863 6.26863 5 6.6 5H9.4C9.73137 5 10 5.26863 10 5.6V18.4C10 18.7314 9.73137 19 9.4 19H6.6C6.26863 19 6 18.7314 6 18.4Z"
+                                                              stroke="currentColor"
+                                                              stroke-width="1.7"
+                                                              fill="currentColor"
+                                                          ></path>
+                                                          <path
+                                                              d="M14 18.4V5.6C14 5.26863 14.2686 5 14.6 5H17.4C17.7314 5 18 5.26863 18 5.6V18.4C18 18.7314 17.7314 19 17.4 19H14.6C14.2686 19 14 18.7314 14 18.4Z"
+                                                              stroke="currentColor"
+                                                              stroke-width="1.7"
+                                                              fill="currentColor"
+                                                          ></path>
+                                                      </svg>
+                                                  `}
+                                        </button>
+                                    `
+                                  : ''}
                               <button @click=${this.onHideToggleClick} class="button">
                                   Hide&nbsp;&nbsp;<span class="key" style="pointer-events: none;">${cheddar.isMacOS ? 'Cmd' : 'Ctrl'}</span
                                   >&nbsp;&nbsp;<span class="key">&bsol;</span>

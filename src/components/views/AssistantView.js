@@ -446,6 +446,20 @@ export class AssistantView extends LitElement {
         return this.responses.length > 0 ? `${this.currentResponseIndex + 1}/${this.responses.length}` : '';
     }
 
+    handleScreenshotClick() {
+        console.log('[AssistantView] Screenshot button clicked');
+        // Call the global screenshot function
+        if (window.captureManualScreenshot) {
+            window.captureManualScreenshot();
+        } else if (window.cheddar && window.cheddar.handleShortcut) {
+            // Fallback to handleShortcut
+            window.cheddar.handleShortcut('ctrl+enter');
+        } else {
+            console.error('[AssistantView] Screenshot function not available');
+            alert('Screenshot function not available. Please ensure a capture session is active.');
+        }
+    }
+
     navigateToPreviousResponse() {
         if (this.currentResponseIndex > 0) {
             this.currentResponseIndex--;
@@ -501,6 +515,25 @@ export class AssistantView extends LitElement {
         // Load and apply font size
         this.loadFontSize();
 
+        // Add right-click screenshot handler
+        this.handleContextMenu = (e) => {
+            e.preventDefault(); // Prevent default context menu
+            console.log('[AssistantView] Right-click detected, capturing screenshot...');
+            
+            // Call the global screenshot function
+            if (window.captureManualScreenshot) {
+                window.captureManualScreenshot();
+            } else if (window.cheddar && window.cheddar.handleShortcut) {
+                // Fallback to handleShortcut
+                window.cheddar.handleShortcut('ctrl+enter');
+            } else {
+                console.error('[AssistantView] Screenshot function not available');
+            }
+        };
+        
+        // Add event listener to the entire view
+        this.addEventListener('contextmenu', this.handleContextMenu);
+
         // Set up IPC listeners for keyboard shortcuts
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
@@ -534,6 +567,11 @@ export class AssistantView extends LitElement {
 
     disconnectedCallback() {
         super.disconnectedCallback();
+
+        // Remove right-click handler
+        if (this.handleContextMenu) {
+            this.removeEventListener('contextmenu', this.handleContextMenu);
+        }
 
         // Clean up IPC listeners
         if (window.require) {
@@ -718,6 +756,22 @@ export class AssistantView extends LitElement {
                         ></path>
                         <path d="M15 22V13H9V22" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
                         <path d="M9 3V8H15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                </button>
+
+                <button class="nav-button" @click=${this.handleScreenshotClick} title="Take Screenshot (Ctrl+Enter or Right-click)">
+                    <?xml version="1.0" encoding="UTF-8"?><svg
+                        width="24px"
+                        height="24px"
+                        stroke-width="1.7"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        color="#ffffff"
+                    >
+                        <rect x="3" y="3" width="18" height="18" rx="2" stroke="#ffffff" stroke-width="1.7"></rect>
+                        <circle cx="12" cy="12" r="4" stroke="#ffffff" stroke-width="1.7"></circle>
+                        <path d="M3 16L8 11L13 16" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
                     </svg>
                 </button>
 

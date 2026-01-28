@@ -93,6 +93,19 @@ const DEFAULT_TEMPLATE = {
         temperature: 0.6,
         max_response_output_tokens: 4096,
         max_input_tokens: null
+    },
+    vision: {
+        _comment: [
+            'Vision/screenshot analysis settings for Azure OpenAI.',
+            'Uses Chat Completions API with GPT-4.1 or similar vision-capable model.',
+            'Separate from realtime voice deployment.',
+            'detailLevel: low (faster, less detail), high (slower, more detail), auto (balanced)'
+        ],
+        enabled: true,
+        deployment: 'gpt-4.1',
+        detailLevel: 'auto',
+        maxTokens: 1000,
+        systemPrompt: 'You are analyzing a screenshot. Provide clear, concise insights about what you see.'
     }
 };
 

@@ -12,6 +12,7 @@ const { getLocalConfig, writeConfig } = require('./config');
 
 const geminiSessionRef = { current: null };
 const azureServiceRef = { current: null };
+const azureVisionServiceRef = { current: null };
 const audioRouter = new AudioRouter();
 let mainWindow = null;
 
@@ -33,7 +34,7 @@ app.whenReady().then(async () => {
     audioRouter.setGeminiSessionRef(geminiSessionRef);
     audioRouter.setAzureServiceRef(azureServiceRef);
 
-    setupGeminiIpcHandlers(geminiSessionRef);
+    setupGeminiIpcHandlers(geminiSessionRef, azureVisionServiceRef);
     setupGeneralIpcHandlers();
 });
 
@@ -239,6 +240,47 @@ function setupGeneralIpcHandlers() {
         } catch (error) {
             console.error('[index.js] Error initializing Azure Realtime WebSocket service:', error);
             return false;
+        }
+    });
+
+    // Azure Vision IPC handler
+    ipcMain.handle('initialize-azure-vision', async (event, azureApiKey, azureEndpoint, azureVisionDeployment, customPrompt, profile, language) => {
+        try {
+            console.log('[index.js] initialize-azure-vision called:', {
+                hasApiKey: !!azureApiKey,
+                hasEndpoint: !!azureEndpoint,
+                deployment: azureVisionDeployment,
+                profile,
+                language
+            });
+
+            if (!azureApiKey || !azureEndpoint || !azureVisionDeployment) {
+                console.warn('[index.js] Missing Azure Vision configuration');
+                return { success: false, error: 'Missing configuration' };
+            }
+
+            const { AzureVisionService } = require('./utils/azureVision.js');
+            const visionService = new AzureVisionService(
+                azureApiKey,
+                azureEndpoint,
+                azureVisionDeployment,
+                customPrompt,
+                profile,
+                language
+            );
+
+            const success = await visionService.init();
+            if (success) {
+                azureVisionServiceRef.current = visionService;
+                console.log('[index.js] Azure Vision service initialized successfully');
+                return { success: true };
+            } else {
+                console.error('[index.js] Failed to initialize Azure Vision service');
+                return { success: false, error: 'Initialization failed' };
+            }
+        } catch (error) {
+            console.error('[index.js] Error initializing Azure Vision service:', error);
+            return { success: false, error: error.message };
         }
     });
 

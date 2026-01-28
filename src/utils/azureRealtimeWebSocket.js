@@ -31,36 +31,46 @@ class AzureRealtimeWebSocketService extends LLMService {
         const isCognitiveServicesEndpoint = hostname.includes('.cognitiveservices.azure.com');
         const isOpenAiEndpoint = hostname.includes('.openai.azure.com');
 
-        const apiVersion = '2025-04-01-preview';
         let websocketHost = hostname;
 
-        // Transform hostname if needed
+        // Transform cognitiveservices domain to openai domain for Realtime API
         if (isCognitiveServicesEndpoint && !isOpenAiEndpoint) {
             websocketHost = hostname.replace('.cognitiveservices.azure.com', '.openai.azure.com');
+            console.log('[AzureWebSocket] Transformed hostname from:', hostname);
             console.log('[AzureWebSocket] Transformed hostname to:', websocketHost);
-        }
-
-        // Construct WebSocket path
-        // If endpoint already has /openai/v1/, use it; otherwise default to /openai/realtime
-        let wsPath;
-        if (basePath.includes('/openai/v1')) {
-            // Use the base path structure but change to realtime endpoint
-            wsPath = basePath.replace('/v1', '/realtime');
         } else {
+            console.log('[AzureWebSocket] Using endpoint hostname as-is:', websocketHost);
+        }
+
+        // Determine if this is a GA or Preview model based on deployment name
+        // GA models: gpt-realtime, gpt-realtime-mini, gpt-realtime-mini-2025-12-15
+        // Preview models: gpt-4o-realtime-preview, gpt-4o-mini-realtime-preview
+        const isPreviewModel = deployment && deployment.includes('preview');
+        
+        let wsPath;
+        const websocketQuery = new URLSearchParams();
+
+        if (isPreviewModel) {
+            // Preview version: /openai/realtime?api-version=2025-04-01-preview&deployment=xxx
             wsPath = '/openai/realtime';
+            websocketQuery.set('api-version', '2025-04-01-preview');
+            if (deployment) {
+                websocketQuery.set('deployment', deployment);
+            }
+            console.log('[AzureWebSocket] Using Preview model endpoint format');
+        } else {
+            // GA version: /openai/v1/realtime?model=xxx (no api-version needed)
+            wsPath = '/openai/v1/realtime';
+            if (deployment) {
+                websocketQuery.set('model', deployment);
+            }
+            console.log('[AzureWebSocket] Using GA model endpoint format');
         }
 
-        const websocketQuery = new URLSearchParams({
-            'api-version': apiVersion
-        });
+        const queryString = websocketQuery.toString();
+        this.websocketUrl = queryString ? `wss://${websocketHost}${wsPath}?${queryString}` : `wss://${websocketHost}${wsPath}`;
 
-        if (deployment) {
-            websocketQuery.set('deployment', deployment);
-        }
-
-        this.websocketUrl = `wss://${websocketHost}${wsPath}?${websocketQuery.toString()}`;
-
-        console.log('[AzureWebSocket] Constructed WebSocket URL:', this.websocketUrl.replace(/api-key=[^&]*/, 'api-key=***'));
+        console.log('[AzureWebSocket] Constructed WebSocket URL:', this.websocketUrl);
 
         this.deployment = deployment;
         this.region = region || null;
@@ -274,13 +284,31 @@ class AzureRealtimeWebSocketService extends LLMService {
         try {
             return new Promise((resolve, reject) => {
                 this.debugLog('[AzureWebSocket] Creating manual WebSocket connection...');
-                this.debugLog('[AzureWebSocket] WebSocket URL:', this.websocketUrl.replace(/api-key=[^&]*/, 'api-key=***'));
+                this.debugLog('[AzureWebSocket] WebSocket URL:', this.websocketUrl);
 
+                // Per Microsoft docs: API key MUST be passed as header for WebSocket connections
+                // "Due to the current SDK limitation we need to explicitly pass API key as Header"
                 this.socket = new WebSocket(this.websocketUrl, 'realtime', {
                     headers: {
-                        'User-Agent': 'Azure-OpenAI-Node/1.0',
-                        'api-key': this.apiKey
+                        'api-key': this.apiKey,
+                        'User-Agent': 'Azure-OpenAI-Node/1.0'
                     }
+                });
+
+                // Capture the HTTP response for better error messages
+                this.socket.on('unexpected-response', (req, res) => {
+                    console.error('[AzureWebSocket] Unexpected server response:', res.statusCode, res.statusMessage);
+                    let body = '';
+                    res.on('data', chunk => { body += chunk; });
+                    res.on('end', () => {
+                        console.error('[AzureWebSocket] Response body:', body);
+                        try {
+                            const errorData = JSON.parse(body);
+                            console.error('[AzureWebSocket] Error details:', JSON.stringify(errorData, null, 2));
+                        } catch (e) {
+                            console.error('[AzureWebSocket] Raw error response:', body);
+                        }
+                    });
                 });
 
                 this.socket.on('open', () => {
@@ -333,20 +361,38 @@ class AzureRealtimeWebSocketService extends LLMService {
                         const tools = await this.getAzureToolsAsync();
                         console.log(`[AzureWebSocket] Total tools: ${tools.length}`);
                         
+                        // Get model parameters from settings
+                        const { loadAzureRealtimeSettings } = require('../config/azureRealtimeSettings.js');
+                        const realtimeSettings = loadAzureRealtimeSettings();
+                        
+                        // Per Microsoft Docs: session configuration only supports type, instructions, 
+                        // output_modalities, audio, and tools. Temperature and token limits are not supported.
                         const sessionConfig = {
                             type: "session.update",
                             session: {
-                                model: this.deployment,
-                                voice: "alloy",
-                                instructions: this.customPrompt || "",
-                                input_audio_format: "pcm16",
-                                output_audio_format: "pcm16",
-                                input_audio_transcription: {
-                                    model: "whisper-1"
+                                type: "realtime",
+                                instructions: `You are a helpful assistant. IMPORTANT: Always respond in English, regardless of the language used by the user. ${this.customPrompt || ""}`,
+                                output_modalities: ["audio"],
+                                audio: {
+                                    input: {
+                                        transcription: {
+                                            model: "whisper-1"
+                                        },
+                                        format: {
+                                            type: "audio/pcm",
+                                            rate: 24000
+                                        },
+                                        turn_detection: this.getTurnDetectionConfig()
+                                    },
+                                    output: {
+                                        voice: "alloy",
+                                        format: {
+                                            type: "audio/pcm",
+                                            rate: 24000
+                                        }
+                                    }
                                 },
-                                turn_detection: this.getTurnDetectionConfig(),
-                                tools: tools,
-                                modalities: ["text", "audio"]
+                                tools: tools
                             }
                         };
                         
@@ -356,6 +402,7 @@ class AzureRealtimeWebSocketService extends LLMService {
                             console.log('[AzureWebSocket] Grounding enabled with', groundingConfig.data_sources.length, 'data source(s)');
                         }
                         
+                        console.log('[AzureWebSocket] Sending session configuration:', JSON.stringify(sessionConfig, null, 2));
                         this.send(sessionConfig);
 
                         this.isInitialized = true;

@@ -79,6 +79,20 @@ const DEFAULT_TEMPLATE = {
         forceCommitOnPause: true,
         autoResumeAfterResponse: false,
         showInUI: true
+    },
+    model: {
+        _comment: [
+            'Model parameters for response generation.',
+            'temperature: Controls randomness (0.0-2.0). Lower = more focused/deterministic.',
+            '  - Recommended for grounded conversations: 0.6-0.8 (balanced, not too creative)',
+            '  - For factual/precise responses: 0.3-0.5',
+            '  - For creative tasks: 0.9-1.2',
+            'max_response_output_tokens: Max tokens in model response (null = default 4096)',
+            'max_input_tokens: Max tokens in conversation history (null = unlimited)'
+        ],
+        temperature: 0.6,
+        max_response_output_tokens: 4096,
+        max_input_tokens: null
     }
 };
 
@@ -290,6 +304,12 @@ function loadAzureRealtimeSettings() {
         const samplesPerMs = withEnvOverrides.sampleRate / 1000;
         const commitBytes = Math.max(1, Math.round(samplesPerMs * withEnvOverrides.commits.minCommitMs) * 2);
         withEnvOverrides.commits.minCommitBytes = commitBytes;
+    }
+
+    // Enforce Azure's minimum temperature requirement (0.6)
+    if (withEnvOverrides.model && withEnvOverrides.model.temperature < 0.6) {
+        console.warn('[AzureRealtimeSettings] Temperature below Azure minimum (0.6), adjusting from', withEnvOverrides.model.temperature, 'to 0.6');
+        withEnvOverrides.model.temperature = 0.6;
     }
 
     return withEnvOverrides;

@@ -344,6 +344,8 @@ export class AssistantView extends LitElement {
                     sanitize: false, // We trust the AI responses
                 });
                 let rendered = window.marked.parse(content);
+                // Make all links open in external browser (not in Electron window)
+                rendered = this.makeLinksExternal(rendered);
                 rendered = this.wrapWordsInSpans(rendered);
                 return rendered;
             } catch (error) {
@@ -353,6 +355,63 @@ export class AssistantView extends LitElement {
         }
         console.log('Marked not available, using plain text');
         return content; // Fallback if marked is not available
+    }
+
+    makeLinksExternal(html) {
+        // Parse HTML and add click handlers to open links in external browser
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const links = doc.querySelectorAll('a[href]');
+        
+        links.forEach(link => {
+            const href = link.getAttribute('href');
+            if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+                // Add data attribute for external link handling
+                link.setAttribute('data-external-link', href);
+                link.setAttribute('title', link.getAttribute('title') || 'Open in browser');
+                // Remove default href to prevent Electron from navigating
+                link.style.cursor = 'pointer';
+            }
+        });
+        
+        return doc.body.innerHTML;
+    }
+
+    makeLinksExternal(html) {
+        // Parse HTML and add click handlers to open links in external browser
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const links = doc.querySelectorAll('a[href]');
+        
+        links.forEach(link => {
+            const href = link.getAttribute('href');
+            if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+                // Add data attribute for external link handling
+                link.setAttribute('data-external-link', href);
+                link.setAttribute('title', link.getAttribute('title') || 'Open in browser');
+                // Keep href for accessibility but prevent default navigation
+                link.style.cursor = 'pointer';
+            }
+        });
+        
+        return doc.body.innerHTML;
+    }
+
+    handleLinkClick(e) {
+        // Intercept clicks on external links and open in system browser
+        const target = e.target.closest('a[data-external-link]');
+        if (target) {
+            e.preventDefault();
+            const url = target.getAttribute('data-external-link');
+            if (url && window.require) {
+                const { ipcRenderer } = window.require('electron');
+                ipcRenderer.invoke('open-external', url).then(result => {
+                    if (!result.success) {
+                        console.error('Failed to open external link:', result.error);
+                    }
+                });
+            }
+        }
     }
 
     wrapWordsInSpans(html) {
@@ -618,7 +677,7 @@ export class AssistantView extends LitElement {
         const isSaved = this.isResponseSaved();
 
         return html`
-            <div class="response-container" id="responseContainer"></div>
+            <div class="response-container" id="responseContainer" @click=${this.handleLinkClick}></div>
 
             <div class="text-input-container">
                 <button class="nav-button" @click=${this.navigateToPreviousResponse} ?disabled=${this.currentResponseIndex <= 0}>

@@ -357,10 +357,55 @@ function triggerAzureWebSocketInit(profile = 'interview', language = 'en-US') {
                 console.error('[renderer] Error in initialize-azure-realtime IPC call:', error);
                 cheddar.setStatus('error');
             });
+        
+        // Initialize Azure Vision if enabled
+        initializeAzureVision(profile, language);
     } else {
         console.error('[renderer] Azure credentials incomplete. Required: azureApiKey, azureEndpoint, azureRegion');
         console.log('[renderer] Current values - apiKey:', azureApiKey, 'endpoint:', azureEndpoint, 'region:', azureRegion);
         cheddar.setStatus('error');
+    }
+}
+
+// Initialize Azure Vision service for screenshot analysis
+async function initializeAzureVision(profile = 'interview', language = 'en-US') {
+    const azureVisionEnabled = localStorage.getItem('azureVisionEnabled') !== 'false';
+    
+    if (!azureVisionEnabled) {
+        console.log('[renderer] Azure Vision is disabled, skipping initialization');
+        return;
+    }
+    
+    const azureApiKey = localStorage.getItem('azureApiKey')?.trim();
+    const azureEndpoint = localStorage.getItem('azureEndpoint')?.trim();
+    const azureVisionDeployment = localStorage.getItem('azureVisionDeployment')?.trim() || 'gpt-4.1';
+    const customPrompt = localStorage.getItem('customPrompt') || '';
+    
+    console.log('[renderer] Initializing Azure Vision service:', {
+        hasApiKey: !!azureApiKey,
+        hasEndpoint: !!azureEndpoint,
+        deployment: azureVisionDeployment
+    });
+    
+    if (!azureApiKey || !azureEndpoint || !azureVisionDeployment) {
+        console.warn('[renderer] Azure Vision credentials incomplete, skipping initialization');
+        return;
+    }
+    
+    try {
+        const result = await ipcRenderer.invoke('initialize-azure-vision', 
+            azureApiKey, azureEndpoint, azureVisionDeployment, customPrompt, profile, language);
+        
+        if (result.success) {
+            console.log('[renderer] Azure Vision service initialized successfully');
+            // Store settings globally for routing decisions
+            window.llmService = 'azure';
+            window.azureVisionEnabled = true;
+        } else {
+            console.error('[renderer] Azure Vision initialization failed:', result.error);
+        }
+    } catch (error) {
+        console.error('[renderer] Error initializing Azure Vision:', error);
     }
 }
 
@@ -700,8 +745,12 @@ function setupWindowsLoopbackProcessing() {
 }
 
 async function captureScreenshot(imageQuality = 'medium', isManual = false) {
-    console.log(`Capturing ${isManual ? 'manual' : 'automated'} screenshot...`);
-    if (!mediaStream) return;
+    console.log(`[renderer] Capturing ${isManual ? 'manual' : 'automated'} screenshot...`);
+    
+    if (!mediaStream) {
+        console.error('[renderer] Cannot capture screenshot: mediaStream not initialized. Start a capture session first!');
+        return;
+    }
 
     // Check rate limiting for automated screenshots only
     if (!isManual && tokenTracker.shouldThrottle()) {
@@ -801,7 +850,22 @@ async function captureScreenshot(imageQuality = 'medium', isManual = false) {
 }
 
 async function captureManualScreenshot(imageQuality = null) {
-    console.log('Manual screenshot triggered');
+    console.log('[renderer] captureManualScreenshot called, imageQuality:', imageQuality);
+    console.log('[renderer] hiddenVideo exists:', !!hiddenVideo);
+    console.log('[renderer] mediaStream exists:', !!mediaStream);
+    
+    if (!mediaStream) {
+        console.error('[renderer] Cannot take screenshot: No active capture session!');
+        const message = 'Please start a capture session first (Ctrl+Enter from Main view) before taking screenshots.';
+        console.error('[renderer]', message);
+        
+        // Show error to user
+        if (soundBoardApp) {
+            soundBoardApp.setStatus('❌ ' + message);
+        }
+        return;
+    }
+    
     const quality = imageQuality || currentImageQuality;
     await captureScreenshot(quality, true); // Pass true for isManual
     await new Promise(resolve => setTimeout(resolve, 2000)); // TODO shitty hack
@@ -985,12 +1049,26 @@ ipcRenderer.on('clear-sensitive-data', () => {
 
 // Handle shortcuts based on current view
 function handleShortcut(shortcutKey) {
+    console.log('[renderer] handleShortcut called with key:', shortcutKey);
+    
+    if (typeof cheddar === 'undefined' || !cheddar.getCurrentView) {
+        console.error('[renderer] cheddar object not available!');
+        return;
+    }
+    
     const currentView = cheddar.getCurrentView();
+    console.log('[renderer] Current view:', currentView);
 
     if (shortcutKey === 'ctrl+enter' || shortcutKey === 'cmd+enter') {
         if (currentView === 'main') {
-            cheddar.element().handleStart();
+            console.log('[renderer] Starting session from main view');
+            if (cheddar.element && cheddar.element().handleStart) {
+                cheddar.element().handleStart();
+            } else {
+                console.error('[renderer] handleStart method not available');
+            }
         } else {
+            console.log('[renderer] Capturing screenshot from view:', currentView);
             captureManualScreenshot();
         }
     }

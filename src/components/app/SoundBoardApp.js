@@ -151,6 +151,28 @@ export class SoundBoardApp extends LitElement {
     connectedCallback() {
         super.connectedCallback();
 
+        // Add global right-click screenshot handler
+        this.handleContextMenu = (e) => {
+            const currentView = this.currentView;
+            
+            // Only capture screenshot if NOT on main view (same logic as Ctrl+Enter)
+            if (currentView !== 'main' && currentView !== 'onboarding') {
+                e.preventDefault(); // Prevent default context menu
+                console.log('[SoundBoardApp] Right-click screenshot triggered from view:', currentView);
+                
+                // Call the global screenshot function
+                if (window.captureManualScreenshot) {
+                    window.captureManualScreenshot();
+                } else {
+                    console.error('[SoundBoardApp] Screenshot function not available');
+                }
+            }
+            // If on main view, allow default context menu behavior
+        };
+        
+        // Add event listener to the entire app
+        this.addEventListener('contextmenu', this.handleContextMenu);
+
         // Set up IPC listeners if needed
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
@@ -168,6 +190,12 @@ export class SoundBoardApp extends LitElement {
 
     disconnectedCallback() {
         super.disconnectedCallback();
+        
+        // Remove global right-click handler
+        if (this.handleContextMenu) {
+            this.removeEventListener('contextmenu', this.handleContextMenu);
+        }
+        
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
             ipcRenderer.removeAllListeners('update-response');

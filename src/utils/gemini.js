@@ -574,9 +574,10 @@ async function sendAudioToGemini(base64Data) {
     await handleGeminiAudioChunk({ data: base64Data, mimeType: 'audio/pcm;rate=24000' });
 }
 
-function setupGeminiIpcHandlers(geminiSessionRef) {
+function setupGeminiIpcHandlers(geminiSessionRef, azureVisionServiceRef) {
     // Store the geminiSessionRef globally for reconnection access
     global.geminiSessionRef = geminiSessionRef;
+    global.azureVisionServiceRef = azureVisionServiceRef;
     sessionRefForTurnCompletion = geminiSessionRef;
 
     ipcMain.handle('initialize-gemini', async (event, apiKey, customPrompt, profile = 'interview', language = 'en-US') => {
@@ -594,6 +595,39 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
     ipcMain.handle('send-mic-audio-content', async (event, payload) => handleGeminiMicAudioChunk(payload));
 
     ipcMain.handle('send-image-content', async (event, { data, debug }) => {
+        // Get settings from renderer via webContents
+        const sender = event.sender;
+        let llmService = 'gemini';
+        let azureVisionEnabled = true;
+        
+        try {
+            llmService = await sender.executeJavaScript('localStorage.getItem("llmService") || "gemini"');
+            const visionEnabledStr = await sender.executeJavaScript('localStorage.getItem("azureVisionEnabled")');
+            azureVisionEnabled = visionEnabledStr !== 'false';
+        } catch (error) {
+            console.warn('[IPC] Could not read settings from renderer:', error);
+        }
+        
+        // Check if Azure Vision is enabled and available
+        if (llmService === 'azure' && azureVisionEnabled && azureVisionServiceRef?.current) {
+            console.log('[IPC] Routing screenshot to Azure Vision service...');
+            try {
+                const response = await azureVisionServiceRef.current.sendImage(data);
+                
+                // Send response to renderer
+                const windows = BrowserWindow.getAllWindows();
+                if (windows.length > 0) {
+                    windows[0].webContents.send('update-response', response);
+                }
+                
+                return { success: true, response };
+            } catch (error) {
+                console.error('[IPC] Azure Vision error:', error);
+                return { success: false, error: error.message };
+            }
+        }
+        
+        // Fallback to Gemini
         if (!geminiSessionRef.current) return { success: false, error: 'No active Gemini session' };
 
         try {

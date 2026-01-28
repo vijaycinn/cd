@@ -330,8 +330,10 @@ export class AdvancedView extends LitElement {
         llmService: { type: String },
         azureApiKey: { type: String },
         azureEndpoint: { type: String },
-    azureRegion: { type: String },
-    azureDeployment: { type: String },
+        azureRegion: { type: String },
+        azureDeployment: { type: String },
+        azureVisionEnabled: { type: Boolean },
+        azureVisionDeployment: { type: String },
     };
 
     constructor() {
@@ -350,10 +352,12 @@ export class AdvancedView extends LitElement {
 
         // LLM Service defaults
         this.llmService = localStorage.getItem('llmService') || 'gemini';
-    this.azureApiKey = localStorage.getItem('azureApiKey') || '';
-    this.azureEndpoint = localStorage.getItem('azureEndpoint') || '';
-    this.azureRegion = localStorage.getItem('azureRegion') || '';
-    this.azureDeployment = localStorage.getItem('azureDeployment') || '';
+        this.azureApiKey = localStorage.getItem('azureApiKey') || '';
+        this.azureEndpoint = localStorage.getItem('azureEndpoint') || '';
+        this.azureRegion = localStorage.getItem('azureRegion') || '';
+        this.azureDeployment = localStorage.getItem('azureDeployment') || '';
+        this.azureVisionEnabled = localStorage.getItem('azureVisionEnabled') !== 'false';
+        this.azureVisionDeployment = localStorage.getItem('azureVisionDeployment') || 'gpt-4.1';
 
         this.loadRateLimitSettings();
         this.loadContentProtectionSetting();
@@ -502,9 +506,10 @@ export class AdvancedView extends LitElement {
     }
 
     handleInputChange(e) {
-        const { name, value } = e.target;
-        this[name] = value;
-        localStorage.setItem(name, value);
+        const { name, value, type, checked } = e.target;
+        const newValue = type === 'checkbox' ? checked : value;
+        this[name] = newValue;
+        localStorage.setItem(name, newValue);
         this.requestUpdate();
     }
 
@@ -647,9 +652,25 @@ export class AdvancedView extends LitElement {
                                 <input type="text" name="azureRegion" class="form-control" .value=${this.azureRegion} @input=${this.handleInputChange} placeholder="eastus2">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Deployment Name</label>
-                                <input type="text" name="azureDeployment" class="form-control" .value=${this.azureDeployment} @input=${this.handleInputChange} placeholder="e.g., gpt-5-mini">
+                                <label class="form-label">Voice Deployment Name</label>
+                                <input type="text" name="azureDeployment" class="form-control" .value=${this.azureDeployment} @input=${this.handleInputChange} placeholder="e.g., gpt-realtime">
+                                <small class="form-hint">Deployment for voice/audio (Realtime API)</small>
                             </div>
+                            
+                            <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1); grid-column: 1 / -1;">
+                                <label class="form-label" style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" name="azureVisionEnabled" .checked=${this.azureVisionEnabled} @change=${this.handleInputChange}>
+                                    <span>Enable Screenshot Analysis</span>
+                                </label>
+                            </div>
+                            
+                            ${this.azureVisionEnabled ? html`
+                                <div class="form-group">
+                                    <label class="form-label">Vision Deployment Name</label>
+                                    <input type="text" name="azureVisionDeployment" class="form-control" .value=${this.azureVisionDeployment} @input=${this.handleInputChange} placeholder="gpt-4.1">
+                                    <small class="form-hint">Deployment for vision model (e.g., gpt-4.1, gpt-4o)</small>
+                                </div>
+                            ` : ''}
                         ` : ''}
                     </div>
                 </div>

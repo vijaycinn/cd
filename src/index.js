@@ -2,7 +2,7 @@ if (require('electron-squirrel-startup')) {
     process.exit(0);
 }
 
-const { app, BrowserWindow, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, dialog } = require('electron');
 const { createWindow, updateGlobalShortcuts } = require('./utils/window');
 const { setupGeminiIpcHandlers, stopMacOSAudioCapture, sendToRenderer } = require('./utils/gemini');
 const { AudioRouter } = require('./utils/audioRouter');
@@ -36,6 +36,26 @@ app.whenReady().then(async () => {
 
     setupGeminiIpcHandlers(geminiSessionRef, azureVisionServiceRef);
     setupGeneralIpcHandlers();
+
+    // Startup Azure credential check — non-blocking; warns or blocks depending on fallback availability
+    const { checkAuth } = require('./utils/azureAuth.js');
+    const settingsManager = require('./utils/settings.js');
+    const authResult = await checkAuth({ azureApiKey: settingsManager.get('azureApiKey') });
+    if (!authResult.ok) {
+        if (!authResult.usingFallback) {
+            dialog.showErrorBox(
+                'Azure Authentication Required',
+                'No Azure identity was found.\n\n' +
+                'Run "azd login" or "az login" in a terminal before starting this app.\n\n' +
+                'Alternatively, enter an Azure API key in Settings to use as a fallback.\n\n' +
+                `Detail: ${authResult.reason}`
+            );
+        } else {
+            console.warn('[startup] Azure managed identity unavailable; continuing with API key fallback.', authResult.reason);
+        }
+    } else {
+        console.log('[startup] Azure managed identity resolved successfully.');
+    }
 });
 
 app.on('window-all-closed', () => {
@@ -176,10 +196,15 @@ function setupGeneralIpcHandlers() {
     });
 
     // Azure Realtime IPC handlers
-    ipcMain.handle('initialize-azure-realtime', async (event, azureApiKey, azureEndpoint, azureDeployment, azureRegion, customPrompt, profile, language) => {
+    ipcMain.handle('initialize-azure-realtime', async (event, azureEndpoint, azureDeployment, azureRegion, customPrompt, profile, language) => {
         try {
+            // Managed identity is preferred; API key from settings is the optional fallback only
+            const settingsManager = require('./utils/settings.js');
+            const apiKeyFallback = settingsManager.get('azureApiKey') || null;
+
             console.log('[index.js] initialize-azure-realtime called with parameters - switching to WebSocket:', {
-                hasApiKey: !!azureApiKey,
+                usingManagedIdentity: !apiKeyFallback,
+                hasApiKeyFallback: !!apiKeyFallback,
                 hasEndpoint: !!azureEndpoint,
                 deployment: azureDeployment,
                 region: azureRegion,
@@ -189,11 +214,8 @@ function setupGeneralIpcHandlers() {
 
             const { AzureRealtimeWebSocketService } = require('./utils/azureRealtimeWebSocket.js');
 
-            // Initialize conversation session for Azure (like Gemini does)
-            // initializeNewSession(); // Don't call this - it belongs to Gemini
-
-            // Create AzureRealtimeWebSocketService
-            const azureService = new AzureRealtimeWebSocketService(azureApiKey, azureEndpoint, azureDeployment, azureRegion, customPrompt, profile, language);
+            // Create AzureRealtimeWebSocketService (apiKeyFallback may be null when managed identity is active)
+            const azureService = new AzureRealtimeWebSocketService(apiKeyFallback, azureEndpoint, azureDeployment, azureRegion, customPrompt, profile, language);
 
             // Set up callbacks to send updates to renderer
             azureService.setCallbacks({
@@ -244,24 +266,29 @@ function setupGeneralIpcHandlers() {
     });
 
     // Azure Vision IPC handler
-    ipcMain.handle('initialize-azure-vision', async (event, azureApiKey, azureEndpoint, azureVisionDeployment, customPrompt, profile, language) => {
+    ipcMain.handle('initialize-azure-vision', async (event, azureEndpoint, azureVisionDeployment, customPrompt, profile, language) => {
         try {
+            // Managed identity is preferred; API key from settings is the optional fallback only
+            const settingsManager = require('./utils/settings.js');
+            const apiKeyFallback = settingsManager.get('azureApiKey') || null;
+
             console.log('[index.js] initialize-azure-vision called:', {
-                hasApiKey: !!azureApiKey,
+                usingManagedIdentity: !apiKeyFallback,
+                hasApiKeyFallback: !!apiKeyFallback,
                 hasEndpoint: !!azureEndpoint,
                 deployment: azureVisionDeployment,
                 profile,
                 language
             });
 
-            if (!azureApiKey || !azureEndpoint || !azureVisionDeployment) {
-                console.warn('[index.js] Missing Azure Vision configuration');
+            if (!azureEndpoint || !azureVisionDeployment) {
+                console.warn('[index.js] Missing Azure Vision configuration (endpoint or deployment)');
                 return { success: false, error: 'Missing configuration' };
             }
 
             const { AzureVisionService } = require('./utils/azureVision.js');
             const visionService = new AzureVisionService(
-                azureApiKey,
+                apiKeyFallback,
                 azureEndpoint,
                 azureVisionDeployment,
                 customPrompt,
@@ -281,6 +308,55 @@ function setupGeneralIpcHandlers() {
         } catch (error) {
             console.error('[index.js] Error initializing Azure Vision service:', error);
             return { success: false, error: error.message };
+        }
+    });
+
+    // Ephemeral token endpoint for Azure WebRTC sessions — auth is handled securely here in main process
+    ipcMain.handle('get-azure-ephemeral-token', async (event, { sessionsUrl, deployment, voice = 'alloy' }) => {
+        try {
+            if (!sessionsUrl || typeof sessionsUrl !== 'string' || !sessionsUrl.startsWith('https://')) {
+                throw new Error('Invalid sessionsUrl — must be an absolute HTTPS URL');
+            }
+
+            const { getToken } = require('./utils/azureAuth.js');
+            const settingsManager = require('./utils/settings.js');
+
+            let headers = { 'Content-Type': 'application/json' };
+
+            try {
+                const tokenResult = await getToken();
+                headers['Authorization'] = `Bearer ${tokenResult.token}`;
+                console.log('[index.js] get-azure-ephemeral-token: using managed identity bearer token');
+            } catch (tokenErr) {
+                const apiKeyFallback = settingsManager.get('azureApiKey');
+                if (!apiKeyFallback) {
+                    throw new Error(`Azure authentication failed: no managed identity and no API key configured. ${tokenErr.message}`);
+                }
+                console.warn('[index.js] get-azure-ephemeral-token: managed identity unavailable, using API key fallback:', tokenErr.message);
+                headers['api-key'] = apiKeyFallback;
+            }
+
+            const response = await fetch(sessionsUrl, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ model: deployment, voice })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Ephemeral token request failed: HTTP ${response.status} - ${errorText}`);
+            }
+
+            const data = await response.json();
+            if (!data.id || !data.client_secret?.value) {
+                throw new Error('Invalid ephemeral token response — missing required fields');
+            }
+
+            console.log('[index.js] get-azure-ephemeral-token: session created:', data.id);
+            return data;
+        } catch (error) {
+            console.error('[index.js] get-azure-ephemeral-token error:', error);
+            throw error;
         }
     });
 

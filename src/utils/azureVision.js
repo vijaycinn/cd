@@ -1,6 +1,7 @@
 const { LLMService } = require('./llm.js');
 const { loadAzureRealtimeSettings } = require('../config/azureRealtimeSettings.js');
 const OpenAI = require('openai');
+const { AzureOpenAI } = require('openai');
 
 class AzureVisionService extends LLMService {
     constructor(apiKey, endpoint, deployment, customPrompt, profile, language) {
@@ -12,13 +13,10 @@ class AzureVisionService extends LLMService {
 
         const baseURL = endpoint.startsWith('http') ? endpoint : `https://${endpoint}`;
         const formattedEndpoint = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL;
+        this.formattedEndpoint = formattedEndpoint;
 
-        this.client = new OpenAI({
-            apiKey: apiKey,
-            baseURL: `${formattedEndpoint}/openai/deployments/${deployment}`,
-            defaultQuery: { 'api-version': '2024-08-01-preview' },
-            defaultHeaders: { 'api-key': apiKey }
-        });
+        // Client is initialized in init() after auth is resolved
+        this.client = null;
 
         this.systemPrompt = customPrompt || this.settings.vision.systemPrompt;
         this.detailLevel = this.settings.vision.detailLevel || 'auto';
@@ -31,8 +29,35 @@ class AzureVisionService extends LLMService {
 
     async init() {
         try {
-            if (!this.apiKey || !this.endpoint || !this.deployment) {
-                throw new Error('Missing required Azure Vision configuration (apiKey, endpoint, or deployment)');
+            if (!this.endpoint || !this.deployment) {
+                throw new Error('Missing required Azure Vision configuration (endpoint or deployment)');
+            }
+
+            // Try managed identity (azd login / az login) first, then fall back to API key
+            try {
+                const azureAuth = require('./azureAuth.js');
+                await azureAuth.getToken(); // verify credential is resolvable before wiring up the provider
+                this.client = new AzureOpenAI({
+                    endpoint: this.formattedEndpoint,
+                    deployment: this.deployment,
+                    apiVersion: '2024-08-01-preview',
+                    azureADTokenProvider: async () => {
+                        const t = await azureAuth.getToken();
+                        return t.token;
+                    }
+                });
+                console.log('[AzureVision] Using managed identity authentication');
+            } catch (tokenErr) {
+                if (!this.apiKey) {
+                    throw new Error(`Azure authentication failed: no managed identity and no API key configured. ${tokenErr.message}`);
+                }
+                console.warn('[AzureVision] Managed identity unavailable, using API key fallback:', tokenErr.message);
+                this.client = new OpenAI({
+                    apiKey: this.apiKey,
+                    baseURL: `${this.formattedEndpoint}/openai/deployments/${this.deployment}`,
+                    defaultQuery: { 'api-version': '2024-08-01-preview' },
+                    defaultHeaders: { 'api-key': this.apiKey }
+                });
             }
 
             console.log('[AzureVision] Service initialized successfully');

@@ -281,18 +281,37 @@ class AzureRealtimeWebSocketService extends LLMService {
     async init() {
         console.log('[AzureWebSocket] Initializing Azure WebSocket Realtime service (manual implementation)');
 
+        // Resolve auth headers before opening the WebSocket.
+        // Managed identity (azd login / az login) is always tried first.
+        // API key is used only as a fallback when no identity is available.
+        let authHeaders;
+        try {
+            const azureAuth = require('./azureAuth.js');
+            const tokenResult = await azureAuth.getToken();
+            authHeaders = {
+                'Authorization': `Bearer ${tokenResult.token}`,
+                'User-Agent': 'Azure-OpenAI-Node/1.0'
+            };
+            console.log('[AzureWebSocket] Using managed identity bearer token for authentication');
+        } catch (tokenErr) {
+            if (this.apiKey) {
+                console.warn('[AzureWebSocket] Managed identity unavailable, falling back to API key auth:', tokenErr.message);
+                authHeaders = {
+                    'api-key': this.apiKey,
+                    'User-Agent': 'Azure-OpenAI-Node/1.0'
+                };
+            } else {
+                throw new Error(`Azure authentication failed: no managed identity and no API key configured. ${tokenErr.message}`);
+            }
+        }
+
         try {
             return new Promise((resolve, reject) => {
                 this.debugLog('[AzureWebSocket] Creating manual WebSocket connection...');
                 this.debugLog('[AzureWebSocket] WebSocket URL:', this.websocketUrl);
 
-                // Per Microsoft docs: API key MUST be passed as header for WebSocket connections
-                // "Due to the current SDK limitation we need to explicitly pass API key as Header"
                 this.socket = new WebSocket(this.websocketUrl, 'realtime', {
-                    headers: {
-                        'api-key': this.apiKey,
-                        'User-Agent': 'Azure-OpenAI-Node/1.0'
-                    }
+                    headers: authHeaders
                 });
 
                 // Capture the HTTP response for better error messages

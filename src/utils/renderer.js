@@ -344,10 +344,10 @@ function triggerAzureWebSocketInit(profile = 'interview', language = 'en-US') {
         region: azureRegion
     });
 
-    if (azureApiKey && azureEndpoint && azureRegion) {
+    if (azureEndpoint && azureRegion) {
         console.log('[renderer] Invoking initialize-azure-realtime IPC call');
         // Fire and forget - this will start the service creation in main process
-        ipcRenderer.invoke('initialize-azure-realtime', azureApiKey, azureEndpoint, azureDeployment, azureRegion,
+        ipcRenderer.invoke('initialize-azure-realtime', azureEndpoint, azureDeployment, azureRegion,
                           localStorage.getItem('customPrompt') || '', profile, language)
             .then(success => {
                 console.log('[renderer] initialize-azure-realtime IPC call result:', success);
@@ -361,8 +361,8 @@ function triggerAzureWebSocketInit(profile = 'interview', language = 'en-US') {
         // Initialize Azure Vision if enabled
         initializeAzureVision(profile, language);
     } else {
-        console.error('[renderer] Azure credentials incomplete. Required: azureApiKey, azureEndpoint, azureRegion');
-        console.log('[renderer] Current values - apiKey:', azureApiKey, 'endpoint:', azureEndpoint, 'region:', azureRegion);
+        console.error('[renderer] Azure configuration incomplete. Required: azureEndpoint, azureRegion');
+        console.log('[renderer] Current values - endpoint:', azureEndpoint, 'region:', azureRegion);
         cheddar.setStatus('error');
     }
 }
@@ -387,14 +387,14 @@ async function initializeAzureVision(profile = 'interview', language = 'en-US') 
         deployment: azureVisionDeployment
     });
     
-    if (!azureApiKey || !azureEndpoint || !azureVisionDeployment) {
-        console.warn('[renderer] Azure Vision credentials incomplete, skipping initialization');
+    if (!azureEndpoint || !azureVisionDeployment) {
+        console.warn('[renderer] Azure Vision configuration incomplete, skipping initialization');
         return;
     }
     
     try {
         const result = await ipcRenderer.invoke('initialize-azure-vision', 
-            azureApiKey, azureEndpoint, azureVisionDeployment, customPrompt, profile, language);
+            azureEndpoint, azureVisionDeployment, customPrompt, profile, language);
         
         if (result.success) {
             console.log('[renderer] Azure Vision service initialized successfully');
@@ -1101,30 +1101,17 @@ async function initializeAzureWebRTC(config) {
         }
         console.log('[renderer] STEP 2: ✓ Media devices API is available');
 
-        // STEP 3: Generate ephemeral API key
-        console.log('[renderer] STEP 3: Generating ephemeral API key from:', config.sessionsUrl);
-        const ephemeralResponse = await fetch(config.sessionsUrl, {
-            method: 'POST',
-            headers: {
-                'api-key': config.apiKey,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: config.deployment,
-                voice: 'alloy'
-            })
+        // STEP 3: Obtain ephemeral token via IPC — auth is handled securely in the main process
+        console.log('[renderer] STEP 3: Requesting ephemeral token via IPC from:', config.sessionsUrl);
+        const ephemeralData = await ipcRenderer.invoke('get-azure-ephemeral-token', {
+            sessionsUrl: config.sessionsUrl,
+            deployment: config.deployment,
+            voice: 'alloy'
         });
-
-        if (!ephemeralResponse.ok) {
-            const errorText = await ephemeralResponse.text();
-            throw new Error(`Ephemeral key request failed: HTTP ${ephemeralResponse.status} - ${errorText}`);
-        }
-
-        const ephemeralData = await ephemeralResponse.json();
-        if (!ephemeralData.id || !ephemeralData.client_secret?.value) {
+        if (!ephemeralData || !ephemeralData.id || !ephemeralData.client_secret?.value) {
             throw new Error('Invalid ephemeral key response - missing required fields');
         }
-        console.log('[renderer] STEP 3: ✓ Ephemeral key generated successfully (session:', ephemeralData.id, ')');
+        console.log('[renderer] STEP 3: ✓ Ephemeral token obtained successfully (session:', ephemeralData.id, ')');
 
         // STEP 4: Create WebRTC peer connection
         console.log('[renderer] STEP 4: Creating WebRTC peer connection...');

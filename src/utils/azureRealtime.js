@@ -98,10 +98,10 @@ class AzureRealtimeService extends LLMService {
         this.pendingResponses = new Map();
 
         // Track WebRTC configuration in renderer
+        // Note: apiKey is intentionally excluded — auth is resolved securely in the main process
         this.webrtcConfig = {
             sessionsUrl: this.sessionsUrl,
             webrtcUrl: this.webrtcUrl,
-            apiKey: this.apiKey,
             deployment: this.deployment,
             customPrompt: this.customPrompt,
             profile: this.profile,

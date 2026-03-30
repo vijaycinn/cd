@@ -39,20 +39,14 @@ app.whenReady().then(async () => {
 
     // Startup Azure credential check — non-blocking; warns or blocks depending on fallback availability
     const { checkAuth } = require('./utils/azureAuth.js');
-    const settingsManager = require('./utils/settings.js');
-    const authResult = await checkAuth({ azureApiKey: settingsManager.get('azureApiKey') });
+    const authResult = await checkAuth();
     if (!authResult.ok) {
-        if (!authResult.usingFallback) {
-            dialog.showErrorBox(
-                'Azure Authentication Required',
-                'No Azure identity was found.\n\n' +
-                'Run "azd login" or "az login" in a terminal before starting this app.\n\n' +
-                'Alternatively, enter an Azure API key in Settings to use as a fallback.\n\n' +
-                `Detail: ${authResult.reason}`
-            );
-        } else {
-            console.warn('[startup] Azure managed identity unavailable; continuing with API key fallback.', authResult.reason);
-        }
+        dialog.showErrorBox(
+            'Azure Authentication Required',
+            'No Azure identity was found.\n\n' +
+            'Run "azd login" or "az login" in a terminal before starting this app.\n\n' +
+            `Detail: ${authResult.reason}`
+        );
     } else {
         console.log('[startup] Azure managed identity resolved successfully.');
     }
@@ -198,13 +192,13 @@ function setupGeneralIpcHandlers() {
     // Azure Realtime IPC handlers
     ipcMain.handle('initialize-azure-realtime', async (event, azureEndpoint, azureDeployment, azureRegion, customPrompt, profile, language) => {
         try {
-            // Managed identity is preferred; API key from settings is the optional fallback only
-            const settingsManager = require('./utils/settings.js');
-            const apiKeyFallback = settingsManager.get('azureApiKey') || null;
+            // This tenant uses Entra ID auth only; API keys are intentionally disabled.
+            const apiKeyFallback = null;
 
             console.log('[index.js] initialize-azure-realtime called with parameters - switching to WebSocket:', {
-                usingManagedIdentity: !apiKeyFallback,
-                hasApiKeyFallback: !!apiKeyFallback,
+                usingApiKey: false,
+                usingManagedIdentity: true,
+                hasApiKeyFallback: false,
                 hasEndpoint: !!azureEndpoint,
                 deployment: azureDeployment,
                 region: azureRegion,
@@ -268,13 +262,11 @@ function setupGeneralIpcHandlers() {
     // Azure Vision IPC handler
     ipcMain.handle('initialize-azure-vision', async (event, azureEndpoint, azureVisionDeployment, customPrompt, profile, language) => {
         try {
-            // Managed identity is preferred; API key from settings is the optional fallback only
-            const settingsManager = require('./utils/settings.js');
-            const apiKeyFallback = settingsManager.get('azureApiKey') || null;
+            const apiKeyFallback = null;
 
             console.log('[index.js] initialize-azure-vision called:', {
-                usingManagedIdentity: !apiKeyFallback,
-                hasApiKeyFallback: !!apiKeyFallback,
+                usingManagedIdentity: true,
+                hasApiKeyFallback: false,
                 hasEndpoint: !!azureEndpoint,
                 deployment: azureVisionDeployment,
                 profile,
@@ -319,7 +311,6 @@ function setupGeneralIpcHandlers() {
             }
 
             const { getToken } = require('./utils/azureAuth.js');
-            const settingsManager = require('./utils/settings.js');
 
             let headers = { 'Content-Type': 'application/json' };
 
@@ -328,12 +319,7 @@ function setupGeneralIpcHandlers() {
                 headers['Authorization'] = `Bearer ${tokenResult.token}`;
                 console.log('[index.js] get-azure-ephemeral-token: using managed identity bearer token');
             } catch (tokenErr) {
-                const apiKeyFallback = settingsManager.get('azureApiKey');
-                if (!apiKeyFallback) {
-                    throw new Error(`Azure authentication failed: no managed identity and no API key configured. ${tokenErr.message}`);
-                }
-                console.warn('[index.js] get-azure-ephemeral-token: managed identity unavailable, using API key fallback:', tokenErr.message);
-                headers['api-key'] = apiKeyFallback;
+                throw new Error(`Azure authentication failed: managed identity token unavailable. ${tokenErr.message}`);
             }
 
             const response = await fetch(sessionsUrl, {

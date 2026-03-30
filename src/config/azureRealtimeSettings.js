@@ -31,7 +31,7 @@ const DEFAULT_TEMPLATE = {
         'Restart the application after making changes so the new values are applied.'
     ],
     debug: false,
-    sampleRate: 16000,
+    sampleRate: 24000,
     streaming: {
         _comment: 'How frequently audio chunks are flushed to Azure (in bytes/ms).',
         minChunkBytes: 4800,
@@ -61,14 +61,17 @@ const DEFAULT_TEMPLATE = {
             'Server-side Voice Activity Detection settings.',
             'When enabled, server detects speech start/stop and auto-commits audio.',
             'Supported types: server_vad (silence), semantic_vad (utterance-based)',
-            'createResponse: true = auto-generate response, false = manual control'
+            'createResponse: true = auto-generate response, false = manual control',
+            'semantic_vad + eagerness=low is recommended for interview/sales calls to reduce interruptions.'
         ],
         enabled: true,
-        type: 'server_vad',
+        type: 'semantic_vad',
         threshold: 0.5,
         prefixPaddingMs: 300,
-        silenceDurationMs: 200,
-        createResponse: true
+        silenceDurationMs: 500,
+        createResponse: true,
+        interruptResponse: true,
+        eagerness: 'low'
     },
     pauseButton: {
         _comment: [
@@ -299,7 +302,9 @@ function applyEnvOverrides(settings) {
         threshold: normalizeNumber(process.env.AZURE_REALTIME_VAD_THRESHOLD, overrides.serverVad.threshold),
         prefixPaddingMs: normalizeNumber(process.env.AZURE_REALTIME_VAD_PREFIX_PADDING_MS, overrides.serverVad.prefixPaddingMs),
         silenceDurationMs: normalizeNumber(process.env.AZURE_REALTIME_VAD_SILENCE_MS, overrides.serverVad.silenceDurationMs),
-        createResponse: normalizeBoolean(process.env.AZURE_REALTIME_VAD_CREATE_RESPONSE, overrides.serverVad.createResponse)
+        createResponse: normalizeBoolean(process.env.AZURE_REALTIME_VAD_CREATE_RESPONSE, overrides.serverVad.createResponse),
+        interruptResponse: normalizeBoolean(process.env.AZURE_REALTIME_VAD_INTERRUPT_RESPONSE, overrides.serverVad.interruptResponse),
+        eagerness: process.env.AZURE_REALTIME_VAD_EAGERNESS || overrides.serverVad.eagerness
     };
 
     return overrides;

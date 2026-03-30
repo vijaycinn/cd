@@ -76,7 +76,7 @@ class AzureRealtimeWebSocketService extends LLMService {
         this.region = region || null;
         this.customPrompt = customPrompt;
         this.language = language || 'en-US';
-        this.apiKey = apiKey;
+        this.apiKey = typeof apiKey === 'string' ? apiKey.trim() : '';
 
     this.azureRealtimeSettings = loadAzureRealtimeSettings();
     const streamingSettings = this.azureRealtimeSettings.streaming || {};
@@ -162,14 +162,27 @@ class AzureRealtimeWebSocketService extends LLMService {
         
         // Server VAD enabled - use configured type (server_vad, semantic_vad, etc.)
         const vadType = serverVad.type || 'server_vad';
-        
-        return {
+
+        const turnDetection = {
             type: vadType,
-            create_response: serverVad.createResponse !== false, // Default true
-            threshold: serverVad.threshold,
-            prefix_padding_ms: serverVad.prefixPaddingMs,
-            silence_duration_ms: serverVad.silenceDurationMs
+            create_response: serverVad.createResponse !== false // Default true
         };
+
+        if (serverVad.interruptResponse !== undefined) {
+            turnDetection.interrupt_response = serverVad.interruptResponse !== false;
+        }
+
+        if (vadType === 'semantic_vad') {
+            if (serverVad.eagerness) {
+                turnDetection.eagerness = serverVad.eagerness;
+            }
+            return turnDetection;
+        }
+
+        turnDetection.threshold = serverVad.threshold;
+        turnDetection.prefix_padding_ms = serverVad.prefixPaddingMs;
+        turnDetection.silence_duration_ms = serverVad.silenceDurationMs;
+        return turnDetection;
     }
 
     getAzureGroundingConfig() {
@@ -278,166 +291,259 @@ class AzureRealtimeWebSocketService extends LLMService {
         return tools;
     }
 
+    async resolveAuthHeaders(preferredMode = null) {
+        const mode = preferredMode || (this.apiKey ? 'api-key' : 'managed-identity');
+
+        if (mode === 'api-key') {
+            if (!this.apiKey) {
+                throw new Error('No Azure API key configured');
+            }
+            return {
+                headers: {
+                    'api-key': this.apiKey,
+                    'User-Agent': 'Azure-OpenAI-Node/1.0'
+                },
+                mode: 'api-key'
+            };
+        }
+
+        const azureAuth = require('./azureAuth.js');
+        const tokenResult = await azureAuth.getToken();
+        return {
+            headers: {
+                'Authorization': `Bearer ${tokenResult.token}`,
+                'User-Agent': 'Azure-OpenAI-Node/1.0'
+            },
+            mode: 'managed-identity'
+        };
+    }
+
+    getFallbackAuthMode(primaryMode) {
+        if (primaryMode === 'api-key') {
+            return 'managed-identity';
+        }
+        if (primaryMode === 'managed-identity' && this.apiKey) {
+            return 'api-key';
+        }
+        return null;
+    }
+
+    shouldRetryWithFallback(error, attemptedMode) {
+        const errorCode = error?.details?.error?.code || '';
+        const rawMessage = error?.details?.error?.message || error?.message || '';
+        const message = String(rawMessage).toLowerCase();
+
+        if (attemptedMode === 'api-key') {
+            return errorCode === 'AuthenticationTypeDisabled' || message.includes('key based authentication is disabled');
+        }
+
+        if (attemptedMode === 'managed-identity') {
+            return errorCode === 'Tenant provided in token does not match resource token' ||
+                (message.includes('token tenant') && message.includes('resource tenant'));
+        }
+
+        return false;
+    }
+
+    async openSocketConnection(authHeaders, authMode) {
+        return new Promise((resolve, reject) => {
+            this.debugLog('[AzureWebSocket] Creating manual WebSocket connection...');
+            this.debugLog('[AzureWebSocket] WebSocket URL:', this.websocketUrl);
+
+            let settled = false;
+            const settleReject = (error) => {
+                if (!settled) {
+                    settled = true;
+                    reject(error);
+                }
+            };
+            const settleResolve = (value) => {
+                if (!settled) {
+                    settled = true;
+                    resolve(value);
+                }
+            };
+
+            this.socket = new WebSocket(this.websocketUrl, 'realtime', {
+                headers: authHeaders
+            });
+
+            // Capture the HTTP response for better error messages
+            this.socket.on('unexpected-response', (req, res) => {
+                console.error('[AzureWebSocket] Unexpected server response:', res.statusCode, res.statusMessage);
+                let body = '';
+                res.on('data', chunk => { body += chunk; });
+                res.on('end', () => {
+                    console.error('[AzureWebSocket] Response body:', body);
+                    let errorData = null;
+                    try {
+                        errorData = JSON.parse(body);
+                        console.error('[AzureWebSocket] Error details:', JSON.stringify(errorData, null, 2));
+                    } catch (e) {
+                        console.error('[AzureWebSocket] Raw error response:', body);
+                    }
+
+                    const handshakeError = new Error(`WebSocket handshake failed: HTTP ${res.statusCode} ${res.statusMessage}`);
+                    handshakeError.statusCode = res.statusCode;
+                    handshakeError.responseBody = body;
+                    handshakeError.details = errorData;
+                    handshakeError.authMode = authMode;
+                    settleReject(handshakeError);
+                });
+            });
+
+            this.socket.on('open', () => {
+                console.log('[AzureWebSocket] WebSocket connection opened!');
+            });
+
+            this.socket.on('message', (data) => {
+                try {
+                    const message = JSON.parse(data.toString());
+                    this.debugLog('[AzureWebSocket] Received WebSocket message:', message.type);
+                    this.handleWebSocketMessage(message);
+                } catch (error) {
+                    console.error('[AzureWebSocket] Error parsing WebSocket message:', error);
+                }
+            });
+
+            this.socket.on('error', (error) => {
+                console.error('[AzureWebSocket] WebSocket error:', error);
+                if (this.callbacks.onError) {
+                    this.callbacks.onError(error);
+                }
+                if (!this.isInitialized) {
+                    error.authMode = authMode;
+                    settleReject(error);
+                }
+            });
+
+            this.socket.on('close', (code, reason) => {
+                console.log(`[AzureWebSocket] WebSocket closed: code=${code}, reason=${reason.toString()}`);
+                this.isConnected = false;
+                this.isInitialized = false;
+                this.pendingChunkAccumulator = [];
+                this.pendingChunkBytes = 0;
+                this.clearFlushTimer();
+                this.lastChunkFlushTs = Date.now();
+                this.speechActive = false;
+                if (this.callbacks.onStatus) {
+                    this.callbacks.onStatus('Disconnected');
+                }
+            });
+
+            // Give connection time to establish, then send session config
+            setTimeout(async () => {
+                if (this.socket.readyState === WebSocket.OPEN) {
+                    this.debugLog('[AzureWebSocket] Sending initial session configuration...');
+                    
+                    // Get grounding configuration
+                    const groundingConfig = this.getAzureGroundingConfig();
+                    
+                    // Get tools (including MCP tools)
+                    const tools = await this.getAzureToolsAsync();
+                    console.log(`[AzureWebSocket] Total tools: ${tools.length}`);
+                    
+                    // Get model parameters from settings
+                    const { loadAzureRealtimeSettings } = require('../config/azureRealtimeSettings.js');
+                    const realtimeSettings = loadAzureRealtimeSettings();
+                    
+                    // Per Microsoft Docs: session configuration only supports type, instructions, 
+                    // output_modalities, audio, and tools. Temperature and token limits are not supported.
+                    const sessionConfig = {
+                        type: "session.update",
+                        session: {
+                            type: "realtime",
+                            instructions: `You are a helpful assistant. IMPORTANT: Always respond in English, regardless of the language used by the user. ${this.customPrompt || ""}`,
+                            output_modalities: ["audio"],
+                            audio: {
+                                input: {
+                                    transcription: {
+                                        model: "whisper-1"
+                                    },
+                                    format: {
+                                        type: "audio/pcm",
+                                        rate: 24000
+                                    },
+                                    turn_detection: this.getTurnDetectionConfig()
+                                },
+                                output: {
+                                    voice: "alloy",
+                                    format: {
+                                        type: "audio/pcm",
+                                        rate: 24000
+                                    }
+                                }
+                            },
+                            tools: tools
+                        }
+                    };
+                    
+                    // Add grounding/data sources if configured
+                    if (groundingConfig.data_sources) {
+                        sessionConfig.session.data_sources = groundingConfig.data_sources;
+                        console.log('[AzureWebSocket] Grounding enabled with', groundingConfig.data_sources.length, 'data source(s)');
+                    }
+                    
+                    console.log('[AzureWebSocket] Sending session configuration:', JSON.stringify(sessionConfig, null, 2));
+                    this.send(sessionConfig);
+
+                    this.isInitialized = true;
+                    this.isConnected = true;
+                    console.log('[AzureWebSocket] Azure WebSocket Realtime service initialized successfully');
+
+                    if (this.callbacks.onStatus) {
+                        this.callbacks.onStatus('Connected');
+                    }
+
+                    settleResolve(true);
+                } else {
+                    const timeoutError = new Error('WebSocket connection failed to open');
+                    timeoutError.authMode = authMode;
+                    settleReject(timeoutError);
+                }
+            }, 3000);
+        });
+    }
+
     async init() {
         console.log('[AzureWebSocket] Initializing Azure WebSocket Realtime service (manual implementation)');
 
         // Resolve auth headers before opening the WebSocket.
-        // Managed identity (azd login / az login) is always tried first.
-        // API key is used only as a fallback when no identity is available.
-        let authHeaders;
+        // Use configured API key first when present, then auto-fallback on known auth-mode mismatch failures.
+        let primaryAuth;
         try {
-            const azureAuth = require('./azureAuth.js');
-            const tokenResult = await azureAuth.getToken();
-            authHeaders = {
-                'Authorization': `Bearer ${tokenResult.token}`,
-                'User-Agent': 'Azure-OpenAI-Node/1.0'
-            };
+            primaryAuth = await this.resolveAuthHeaders();
+        } catch (authErr) {
+            throw new Error(`Azure authentication failed: no usable API key or managed identity token. ${authErr.message}`);
+        }
+
+        if (primaryAuth.mode === 'api-key') {
+            console.log('[AzureWebSocket] Using API key authentication');
+        } else {
             console.log('[AzureWebSocket] Using managed identity bearer token for authentication');
-        } catch (tokenErr) {
-            if (this.apiKey) {
-                console.warn('[AzureWebSocket] Managed identity unavailable, falling back to API key auth:', tokenErr.message);
-                authHeaders = {
-                    'api-key': this.apiKey,
-                    'User-Agent': 'Azure-OpenAI-Node/1.0'
-                };
-            } else {
-                throw new Error(`Azure authentication failed: no managed identity and no API key configured. ${tokenErr.message}`);
-            }
         }
 
         try {
-            return new Promise((resolve, reject) => {
-                this.debugLog('[AzureWebSocket] Creating manual WebSocket connection...');
-                this.debugLog('[AzureWebSocket] WebSocket URL:', this.websocketUrl);
+            try {
+                return await this.openSocketConnection(primaryAuth.headers, primaryAuth.mode);
+            } catch (primaryError) {
+                const fallbackMode = this.getFallbackAuthMode(primaryAuth.mode);
+                if (!fallbackMode || !this.shouldRetryWithFallback(primaryError, primaryAuth.mode)) {
+                    throw primaryError;
+                }
 
-                this.socket = new WebSocket(this.websocketUrl, 'realtime', {
-                    headers: authHeaders
-                });
+                console.warn(
+                    `[AzureWebSocket] Primary auth mode "${primaryAuth.mode}" failed (${primaryError.message}). Retrying with "${fallbackMode}"...`
+                );
+                const fallbackAuth = await this.resolveAuthHeaders(fallbackMode);
+                if (fallbackAuth.mode === 'api-key') {
+                    console.log('[AzureWebSocket] Using API key authentication');
+                } else {
+                    console.log('[AzureWebSocket] Using managed identity bearer token for authentication');
+                }
 
-                // Capture the HTTP response for better error messages
-                this.socket.on('unexpected-response', (req, res) => {
-                    console.error('[AzureWebSocket] Unexpected server response:', res.statusCode, res.statusMessage);
-                    let body = '';
-                    res.on('data', chunk => { body += chunk; });
-                    res.on('end', () => {
-                        console.error('[AzureWebSocket] Response body:', body);
-                        try {
-                            const errorData = JSON.parse(body);
-                            console.error('[AzureWebSocket] Error details:', JSON.stringify(errorData, null, 2));
-                        } catch (e) {
-                            console.error('[AzureWebSocket] Raw error response:', body);
-                        }
-                    });
-                });
-
-                this.socket.on('open', () => {
-                    console.log('[AzureWebSocket] WebSocket connection opened!');
-                });
-
-                this.socket.on('message', (data) => {
-                    try {
-                        const message = JSON.parse(data.toString());
-                        this.debugLog('[AzureWebSocket] Received WebSocket message:', message.type);
-                        this.handleWebSocketMessage(message);
-                    } catch (error) {
-                        console.error('[AzureWebSocket] Error parsing WebSocket message:', error);
-                    }
-                });
-
-                this.socket.on('error', (error) => {
-                    console.error('[AzureWebSocket] WebSocket error:', error);
-                    if (this.callbacks.onError) {
-                        this.callbacks.onError(error);
-                    }
-                    if (!this.isInitialized) {
-                        reject(error);
-                    }
-                });
-
-                this.socket.on('close', (code, reason) => {
-                    console.log(`[AzureWebSocket] WebSocket closed: code=${code}, reason=${reason.toString()}`);
-                    this.isConnected = false;
-                    this.isInitialized = false;
-                    this.pendingChunkAccumulator = [];
-                    this.pendingChunkBytes = 0;
-                    this.clearFlushTimer();
-                    this.lastChunkFlushTs = Date.now();
-                    this.speechActive = false;
-                    if (this.callbacks.onStatus) {
-                        this.callbacks.onStatus('Disconnected');
-                    }
-                });
-
-                // Give connection time to establish, then send session config
-                setTimeout(async () => {
-                    if (this.socket.readyState === WebSocket.OPEN) {
-                        this.debugLog('[AzureWebSocket] Sending initial session configuration...');
-                        
-                        // Get grounding configuration
-                        const groundingConfig = this.getAzureGroundingConfig();
-                        
-                        // Get tools (including MCP tools)
-                        const tools = await this.getAzureToolsAsync();
-                        console.log(`[AzureWebSocket] Total tools: ${tools.length}`);
-                        
-                        // Get model parameters from settings
-                        const { loadAzureRealtimeSettings } = require('../config/azureRealtimeSettings.js');
-                        const realtimeSettings = loadAzureRealtimeSettings();
-                        
-                        // Per Microsoft Docs: session configuration only supports type, instructions, 
-                        // output_modalities, audio, and tools. Temperature and token limits are not supported.
-                        const sessionConfig = {
-                            type: "session.update",
-                            session: {
-                                type: "realtime",
-                                instructions: `You are a helpful assistant. IMPORTANT: Always respond in English, regardless of the language used by the user. ${this.customPrompt || ""}`,
-                                output_modalities: ["audio"],
-                                audio: {
-                                    input: {
-                                        transcription: {
-                                            model: "whisper-1"
-                                        },
-                                        format: {
-                                            type: "audio/pcm",
-                                            rate: 24000
-                                        },
-                                        turn_detection: this.getTurnDetectionConfig()
-                                    },
-                                    output: {
-                                        voice: "alloy",
-                                        format: {
-                                            type: "audio/pcm",
-                                            rate: 24000
-                                        }
-                                    }
-                                },
-                                tools: tools
-                            }
-                        };
-                        
-                        // Add grounding/data sources if configured
-                        if (groundingConfig.data_sources) {
-                            sessionConfig.session.data_sources = groundingConfig.data_sources;
-                            console.log('[AzureWebSocket] Grounding enabled with', groundingConfig.data_sources.length, 'data source(s)');
-                        }
-                        
-                        console.log('[AzureWebSocket] Sending session configuration:', JSON.stringify(sessionConfig, null, 2));
-                        this.send(sessionConfig);
-
-                        this.isInitialized = true;
-                        this.isConnected = true;
-                        console.log('[AzureWebSocket] Azure WebSocket Realtime service initialized successfully');
-
-                        if (this.callbacks.onStatus) {
-                            this.callbacks.onStatus('Connected');
-                        }
-
-                        resolve(true);
-                    } else {
-                        reject(new Error('WebSocket connection failed to open'));
-                    }
-                }, 3000);
-            });
+                return await this.openSocketConnection(fallbackAuth.headers, fallbackAuth.mode);
+            }
         } catch (error) {
             console.error('[AzureWebSocket] Failed to initialize Azure WebSocket Realtime service:', error);
             if (this.callbacks.onError) {

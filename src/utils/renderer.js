@@ -332,13 +332,11 @@ function closeAzureWebSocket() {
 function triggerAzureWebSocketInit(profile = 'interview', language = 'en-US') {
     console.log('[renderer] triggerAzureWebSocketInit called', { profile, language });
 
-    const azureApiKey = localStorage.getItem('azureApiKey')?.trim();
     const azureEndpoint = localStorage.getItem('azureEndpoint')?.trim();
     const azureDeployment = localStorage.getItem('azureDeployment') || '';
     const azureRegion = localStorage.getItem('azureRegion')?.trim() || 'eastus2';
 
-    console.log('[renderer] Azure credentials from localStorage:', {
-        hasApiKey: !!azureApiKey,
+    console.log('[renderer] Azure managed identity settings from localStorage:', {
         hasEndpoint: !!azureEndpoint,
         deployment: azureDeployment,
         region: azureRegion
@@ -347,8 +345,15 @@ function triggerAzureWebSocketInit(profile = 'interview', language = 'en-US') {
     if (azureEndpoint && azureRegion) {
         console.log('[renderer] Invoking initialize-azure-realtime IPC call');
         // Fire and forget - this will start the service creation in main process
-        ipcRenderer.invoke('initialize-azure-realtime', azureEndpoint, azureDeployment, azureRegion,
-                          localStorage.getItem('customPrompt') || '', profile, language)
+        ipcRenderer.invoke(
+            'initialize-azure-realtime',
+            azureEndpoint,
+            azureDeployment,
+            azureRegion,
+            localStorage.getItem('customPrompt') || '',
+            profile,
+            language
+        )
             .then(success => {
                 console.log('[renderer] initialize-azure-realtime IPC call result:', success);
                 // The status will be updated via other IPC channels during initialization
@@ -376,13 +381,11 @@ async function initializeAzureVision(profile = 'interview', language = 'en-US') 
         return;
     }
     
-    const azureApiKey = localStorage.getItem('azureApiKey')?.trim();
     const azureEndpoint = localStorage.getItem('azureEndpoint')?.trim();
     const azureVisionDeployment = localStorage.getItem('azureVisionDeployment')?.trim() || 'gpt-4.1';
     const customPrompt = localStorage.getItem('customPrompt') || '';
     
     console.log('[renderer] Initializing Azure Vision service:', {
-        hasApiKey: !!azureApiKey,
         hasEndpoint: !!azureEndpoint,
         deployment: azureVisionDeployment
     });

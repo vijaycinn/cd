@@ -42,19 +42,15 @@ async function getToken(scope = COGNITIVE_SERVICES_SCOPE) {
 
 /**
  * Probe whether a credential can be resolved (without throwing to the caller).
- * Also checks whether an API key fallback is present so the caller can decide
- * whether to block startup or merely warn.
  *
- * @param {{ azureApiKey?: string }} [settings]
- * @returns {Promise<{ ok: boolean, reason?: string, usingFallback: boolean }>}
+ * @returns {Promise<{ ok: boolean, reason?: string }>}
  */
-async function checkAuth(settings = {}) {
-    const hasFallback = !!(settings.azureApiKey);
+async function checkAuth() {
     try {
         await getToken();
-        return { ok: true, usingFallback: false };
+        return { ok: true };
     } catch (err) {
-        return { ok: false, reason: err.message, usingFallback: hasFallback };
+        return { ok: false, reason: err.message };
     }
 }
 

@@ -22,8 +22,6 @@ class SettingsManager {
         }
         return {
             llmService: 'gemini',
-            // azureApiKey is an optional fallback. Managed identity (azd login / az login) is preferred.
-            azureApiKey: '',
             azureEndpoint: '',
             azureDeployment: '',
             geminiApiKey: '',
@@ -54,8 +52,6 @@ class SettingsManager {
     clear() {
         this.settings = {
             llmService: 'gemini',
-            // azureApiKey is an optional fallback. Managed identity (azd login / az login) is preferred.
-            azureApiKey: '',
             azureEndpoint: '',
             azureDeployment: '',
             geminiApiKey: '',

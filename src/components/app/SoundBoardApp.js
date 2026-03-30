@@ -351,22 +351,20 @@ export class SoundBoardApp extends LitElement {
         const llmService = localStorage.getItem('llmService') || 'gemini';
         this.llmService = llmService; // Update component property
         console.log(`[SoundBoardApp] llmService from localStorage: ${llmService}`);
-        let apiKey;
+        let geminiApiKey = '';
 
         // PR84 PATTERN: Service-based key selection
         if (llmService === 'gemini') {
             console.log('[SoundBoardApp] Using Gemini service');
-            apiKey = localStorage.getItem('geminiApiKey')?.trim();
+            geminiApiKey = localStorage.getItem('geminiApiKey')?.trim() || '';
         } else if (llmService === 'azure') {
             console.log('[SoundBoardApp] Using Azure service');
-            apiKey = localStorage.getItem('azureApiKey')?.trim();
-            // ADDED: Also validate endpoint for Azure
             const endpoint = localStorage.getItem('azureEndpoint')?.trim();
+            const deployment = localStorage.getItem('azureDeployment')?.trim();
             const region = (localStorage.getItem('azureRegion') || 'eastus2')?.trim();
-            console.log(`[SoundBoardApp] Azure credentials - apiKey: ${apiKey ? '***' : 'MISSING'}, endpoint: ${endpoint}, region: ${region}`);
-            if (!apiKey || !endpoint || !region) {
-                // Show error for missing Azure credentials
-                console.log('[SoundBoardApp] Missing Azure credentials, triggering error');
+            console.log(`[SoundBoardApp] Azure managed identity configuration - endpoint: ${endpoint}, region: ${region}, deployment: ${deployment}`);
+            if (!endpoint || !region || !deployment) {
+                console.log('[SoundBoardApp] Missing Azure endpoint/region/deployment, triggering error');
                 this.triggerAzureCredentialError();
                 return;
             }
@@ -374,7 +372,7 @@ export class SoundBoardApp extends LitElement {
             console.log(`[SoundBoardApp] Unknown service: ${llmService}`);
         }
 
-        if (!apiKey || apiKey === '') {
+        if (llmService === 'gemini' && !geminiApiKey) {
             console.log('[SoundBoardApp] No API key found, triggering API key error');
             // Trigger the red blink animation on the API key input
             const mainView = this.shadowRoot.querySelector('main-view');

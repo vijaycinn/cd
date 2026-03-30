@@ -328,7 +328,6 @@ export class AdvancedView extends LitElement {
         throttleAtPercent: { type: Number },
         contentProtection: { type: Boolean },
         llmService: { type: String },
-        azureApiKey: { type: String },
         azureEndpoint: { type: String },
         azureRegion: { type: String },
         azureDeployment: { type: String },
@@ -352,7 +351,6 @@ export class AdvancedView extends LitElement {
 
         // LLM Service defaults
         this.llmService = localStorage.getItem('llmService') || 'gemini';
-        this.azureApiKey = localStorage.getItem('azureApiKey') || '';
         this.azureEndpoint = localStorage.getItem('azureEndpoint') || '';
         this.azureRegion = localStorage.getItem('azureRegion') || '';
         this.azureDeployment = localStorage.getItem('azureDeployment') || '';
@@ -639,10 +637,6 @@ export class AdvancedView extends LitElement {
                         </div>
 
                         ${this.llmService === 'azure' ? html`
-                            <div class="form-group">
-                                <label class="form-label">Azure API Key</label>
-                                <input type="password" name="azureApiKey" class="form-control" .value=${this.azureApiKey} @input=${this.handleInputChange}>
-                            </div>
                             <div class="form-group">
                                 <label class="form-label">Azure Endpoint</label>
                                 <input type="text" name="azureEndpoint" class="form-control" .value=${this.azureEndpoint} @input=${this.handleInputChange} placeholder="https://your-resource.openai.azure.com/">

@@ -234,7 +234,7 @@ export class MainView extends LitElement {
     }
 
     handleInput(e) {
-        const key = this.llmService === 'azure' ? 'azureApiKey' : 'geminiApiKey';
+        const key = 'geminiApiKey';
         if (typeof localStorage !== 'undefined') {
             localStorage.setItem(key, e.target.value);
         }
@@ -289,16 +289,10 @@ export class MainView extends LitElement {
     }
 
     async validateAzureConfig() {
-        let azureApiKey = '';
         let azureEndpoint = '';
         let azureDeployment = '';
 
         if (window.electron?.ipcRenderer?.invoke) {
-            try {
-                azureApiKey = await window.electron.ipcRenderer.invoke('get-setting', 'azureApiKey');
-            } catch (error) {
-                console.warn('Falling back to localStorage for azureApiKey:', error?.message);
-            }
             try {
                 azureEndpoint = await window.electron.ipcRenderer.invoke('get-setting', 'azureEndpoint');
             } catch (error) {
@@ -309,10 +303,6 @@ export class MainView extends LitElement {
             } catch (error) {
                 console.warn('Falling back to localStorage for azureDeployment:', error?.message);
             }
-        }
-
-        if (!azureApiKey && typeof localStorage !== 'undefined') {
-            azureApiKey = localStorage.getItem('azureApiKey');
         }
 
         if (!azureEndpoint && typeof localStorage !== 'undefined') {
@@ -340,7 +330,7 @@ export class MainView extends LitElement {
             azureRegion = 'eastus2';
         }
 
-        this.azureConfigComplete = !!(azureApiKey && azureEndpoint && azureDeployment && azureRegion);
+        this.azureConfigComplete = !!(azureEndpoint && azureDeployment && azureRegion);
         return this.azureConfigComplete;
     }
 
@@ -451,13 +441,7 @@ export class MainView extends LitElement {
     }
 
     getApiKeyStorageKey() {
-        switch (this.llmService) {
-            case 'azure':
-                return 'azureApiKey';
-            case 'gemini':
-            default:
-                return 'apiKey';
-        }
+        return 'geminiApiKey';
     }
 
     render() {
@@ -506,7 +490,7 @@ export class MainView extends LitElement {
                     dont have an api key?
                     <span @click=${this.handleAPIKeyHelpClick} class="link">get one here</span>
                 ` : this.llmService === 'azure' ? html`
-                    configure azure credentials in <span @click=${() => {}} class="link">advanced settings</span>
+                    configure azure managed identity settings in <span @click=${() => {}} class="link">advanced settings</span>
                 ` : ''}
             </p>
         `;

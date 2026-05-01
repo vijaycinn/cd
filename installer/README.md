@@ -1,53 +1,57 @@
-# Sound Board Installation Options
+# Sound Board v0.4.0 - Portable Edition
 
-## 📁 Directory Contents
+**Build Date:** March 22, 2026  
+**Platform:** Windows x64  
+**Built from:** Latest updated codebase
 
-### 1. **SoundBoard-Portable/** (37.4 MB)
+## Directory Contents
+
+### SoundBoard-Portable/ (~890 MB)
 **Portable Edition - No Installation Required**
 
-- Just copy this folder anywhere
-- Double-click `SoundBoard.exe` to run
+- Just copy this folder anywhere and run `SoundBoard.exe`
 - No admin rights needed
 - All settings stored in `%APPDATA%\Sound Board\`
-- Perfect for USB drives or temporary use
+- Perfect for USB drives or portable use
+- Self-contained with all dependencies
 
 **To Use:**
 ```
 1. Open the SoundBoard-Portable folder
 2. Double-click SoundBoard.exe
-3. Configure your AI settings
+3. Go to the Advanced tab and configure your AI provider
 4. Start using!
 ```
 
 ---
 
-### 2. **SoundBoard-Setup.exe** (104.55 MB)
-**Windows Installer - Full Installation**
+## Features
 
-- Auto-updates supported
-- Desktop shortcut created
-- Start Menu integration
-- Installs to: `C:\Users\<You>\AppData\Local\sound-board\`
-- Recommended for regular use
+- Azure OpenAI Realtime voice integration
+- Azure OpenAI Vision screenshot analysis
+- Gemini AI support
+- Real-time audio transcription
+- Microsoft Learn MCP integration
+- Pause/resume audio
+- Screenshot capture (Ctrl+Enter, right-click, or camera button)
+- Stealth mode options
 
-**To Use:**
-```
-1. Double-click SoundBoard-Setup.exe
-2. Follow installation wizard
-3. Launch from Desktop or Start Menu
-```
+## Keyboard Shortcuts
 
----
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+Enter | Start session / Take screenshot |
+| Ctrl+\ | Toggle visibility |
+| Ctrl+M | Toggle click-through |
+| Ctrl+Up/Down | Move window |
+| Ctrl+[/] | Navigate responses |
+| Ctrl+Shift+E | Emergency erase |
 
-## 🆚 Which Should I Use?
+## Notes
 
-| Feature | Portable | Installer |
-|---------|----------|-----------|
-| Installation Required | ❌ No | ✅ Yes |
-| Auto-Updates | ❌ No | ✅ Yes |
-| Desktop Shortcut | ❌ No | ✅ Yes |
-| Run from USB | ✅ Yes | ❌ No |
-| Admin Rights | ❌ Not needed | ❌ Not needed |
+- Settings are stored in `%APPDATA%\Sound Board\` (not in the portable folder)
+- No registry changes are made
+- To fully remove: delete the folder and `%APPDATA%\Sound Board\`
 | Registry Changes | ❌ None | ✅ Yes |
 | Size | 37.4 MB | 104.55 MB |
 

@@ -3,23 +3,24 @@
   SOUND BOARD BUILD COMPLETE!
 ==============================================
 
+Build Date: March 22, 2026
+Version:    0.4.0
+Platform:   Windows x64
+
 Location: C:\workspace\source\cd-oai\cd\installer\
 
 Contents:
 ---------
-1. SoundBoard-Portable/     (37.4 MB)
+1. SoundBoard-Portable/     (~890 MB)
    - Truly portable - just run SoundBoard.exe
    - No installation needed
    - Includes README.txt
+   - Built from latest source (updated codebase)
 
-2. SoundBoard-Setup.exe    (104.55 MB)
-   - Windows installer with auto-update
-   - Creates shortcuts
+2. README.md
+   - Complete guide for the portable version
 
-3. README.md
-   - Complete guide for both versions
-
-Total Package Size: 483.24 MB (77 files)
+Total Files: 75 (including README.txt)
 
 PORTABLE VERSION USAGE:
 -----------------------
@@ -28,12 +29,12 @@ PORTABLE VERSION USAGE:
 3. Configure your AI settings
 4. Start using!
 
-INSTALLER VERSION USAGE:
--------------------------
-1. Navigate to: installer\
-2. Double-click: SoundBoard-Setup.exe
-3. Follow installation wizard
-4. Launch from Desktop
+SOURCE BUILD:
+-------------
+Built with: electron-forge package
+Output dir: out\SoundBoard-win32-x64\
+Asar:        resources\app.asar (~667 MB, includes all source)
+Native util: resources\SystemAudioDump
 
 ==============================================
 

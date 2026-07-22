@@ -21,10 +21,71 @@ class AzureVisionService extends LLMService {
         this.systemPrompt = customPrompt || this.settings.vision.systemPrompt;
         this.detailLevel = this.settings.vision.detailLevel || 'auto';
         this.maxTokens = this.settings.vision.maxTokens || 1000;
+        this.completionTokenParam = this.getPreferredCompletionTokenParam();
 
         console.log('[AzureVision] Initialized with deployment:', deployment);
         console.log('[AzureVision] Detail level:', this.detailLevel);
         console.log('[AzureVision] Max tokens:', this.maxTokens);
+        console.log('[AzureVision] Completion token parameter:', this.completionTokenParam);
+    }
+
+    getPreferredCompletionTokenParam() {
+        const deploymentName = String(this.deployment || '').toLowerCase();
+
+        // GPT-5 and reasoning-style models require max_completion_tokens on Chat Completions.
+        if (deploymentName.includes('gpt-5') || deploymentName.includes('o1') || deploymentName.includes('o3') || deploymentName.includes('o4')) {
+            return 'max_completion_tokens';
+        }
+
+        return 'max_tokens';
+    }
+
+    buildChatCompletionRequest(messages) {
+        const request = {
+            model: this.deployment,
+            messages,
+            temperature: 0.7
+        };
+
+        request[this.completionTokenParam] = this.maxTokens;
+        return request;
+    }
+
+    shouldRetryWithAlternateTokenParam(error) {
+        const errorMessage = String(error?.message || '').toLowerCase();
+        const errorParam = String(error?.param || error?.error?.param || '').toLowerCase();
+        const errorCode = String(error?.code || error?.error?.code || '').toLowerCase();
+
+        return errorCode === 'unsupported_parameter'
+            && (errorParam === 'max_tokens' || errorParam === 'max_completion_tokens')
+            && errorMessage.includes('use')
+            && (errorMessage.includes('max_completion_tokens') || errorMessage.includes('max_tokens'));
+    }
+
+    async createChatCompletion(messages) {
+        if (!this.client) {
+            throw new Error('Azure Vision client not initialized');
+        }
+
+        const request = this.buildChatCompletionRequest(messages);
+
+        try {
+            return await this.client.chat.completions.create(request);
+        } catch (error) {
+            if (!this.shouldRetryWithAlternateTokenParam(error)) {
+                throw error;
+            }
+
+            const alternateParam = this.completionTokenParam === 'max_tokens'
+                ? 'max_completion_tokens'
+                : 'max_tokens';
+
+            console.warn(`[AzureVision] Retrying with ${alternateParam} after unsupported ${this.completionTokenParam}`);
+
+            this.completionTokenParam = alternateParam;
+            const retryRequest = this.buildChatCompletionRequest(messages);
+            return await this.client.chat.completions.create(retryRequest);
+        }
     }
 
     async init() {
@@ -105,12 +166,7 @@ class AzureVisionService extends LLMService {
             }
 
             console.log('[AzureVision] Sending image for analysis...');
-            const response = await this.client.chat.completions.create({
-                model: this.deployment,
-                messages: messages,
-                max_tokens: this.maxTokens,
-                temperature: 0.7
-            });
+            const response = await this.createChatCompletion(messages);
 
             const analysisText = response.choices[0]?.message?.content || '';
             console.log('[AzureVision] Analysis received, length:', analysisText.length);
@@ -125,16 +181,11 @@ class AzureVisionService extends LLMService {
     async sendText(text) {
         try {
             console.log('[AzureVision] Sending text message:', text.substring(0, 50) + '...');
-            
-            const response = await this.client.chat.completions.create({
-                model: this.deployment,
-                messages: [
-                    { role: 'system', content: this.systemPrompt },
-                    { role: 'user', content: text }
-                ],
-                max_tokens: this.maxTokens,
-                temperature: 0.7
-            });
+
+            const response = await this.createChatCompletion([
+                { role: 'system', content: this.systemPrompt },
+                { role: 'user', content: text }
+            ]);
 
             return response.choices[0]?.message?.content || '';
         } catch (error) {

@@ -331,6 +331,8 @@ export class AdvancedView extends LitElement {
         azureEndpoint: { type: String },
         azureRegion: { type: String },
         azureDeployment: { type: String },
+        azureVoiceProvider: { type: String },
+        azureEnableWebIQ: { type: Boolean },
         azureVisionEnabled: { type: Boolean },
         azureVisionDeployment: { type: String },
     };
@@ -354,6 +356,8 @@ export class AdvancedView extends LitElement {
         this.azureEndpoint = localStorage.getItem('azureEndpoint') || '';
         this.azureRegion = localStorage.getItem('azureRegion') || '';
         this.azureDeployment = localStorage.getItem('azureDeployment') || '';
+        this.azureVoiceProvider = localStorage.getItem('azureVoiceProvider') || 'azure-realtime';
+        this.azureEnableWebIQ = localStorage.getItem('azureEnableWebIQ') === 'true';
         this.azureVisionEnabled = localStorage.getItem('azureVisionEnabled') !== 'false';
         this.azureVisionDeployment = localStorage.getItem('azureVisionDeployment') || 'gpt-4.1';
 
@@ -649,6 +653,30 @@ export class AdvancedView extends LitElement {
                                 <label class="form-label">Voice Deployment Name</label>
                                 <input type="text" name="azureDeployment" class="form-control" .value=${this.azureDeployment} @input=${this.handleInputChange} placeholder="e.g., gpt-realtime">
                                 <small class="form-hint">Deployment for voice/audio (Realtime API)</small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Voice Transport Provider</label>
+                                <select name="azureVoiceProvider" class="form-control" .value=${this.azureVoiceProvider} @change=${this.handleInputChange}>
+                                    <option value="azure-realtime">Azure Realtime (default)</option>
+                                    <option value="voice-live">Voice Live (WebSocket)</option>
+                                </select>
+                                <div class="form-description">Voice Live uses WebSocket only and enables native MCP server headers, Azure semantic VAD, noise suppression, and echo cancellation.</div>
+                            </div>
+                            <div class="checkbox-group" style="grid-column: 1 / -1;">
+                                <input
+                                    type="checkbox"
+                                    class="checkbox-input"
+                                    id="azure-enable-webiq"
+                                    name="azureEnableWebIQ"
+                                    .checked=${this.azureEnableWebIQ}
+                                    @change=${this.handleInputChange}
+                                />
+                                <label for="azure-enable-webiq" class="checkbox-label">
+                                    Enable WebIQ web grounding
+                                </label>
+                            </div>
+                            <div class="form-description" style="margin-left: 22px; grid-column: 1 / -1;">
+                                Enable signal only. Configure WEBIQ_API_KEY in process environment or azure-realtime-settings.json.
                             </div>
                             
                             <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1); grid-column: 1 / -1;">

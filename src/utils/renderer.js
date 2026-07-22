@@ -335,11 +335,15 @@ function triggerAzureWebSocketInit(profile = 'interview', language = 'en-US') {
     const azureEndpoint = localStorage.getItem('azureEndpoint')?.trim();
     const azureDeployment = localStorage.getItem('azureDeployment') || '';
     const azureRegion = localStorage.getItem('azureRegion')?.trim() || 'eastus2';
+    const azureVoiceProvider = localStorage.getItem('azureVoiceProvider') || 'azure-realtime';
+    const azureEnableWebIQ = localStorage.getItem('azureEnableWebIQ') === 'true';
 
     console.log('[renderer] Azure managed identity settings from localStorage:', {
         hasEndpoint: !!azureEndpoint,
         deployment: azureDeployment,
-        region: azureRegion
+        region: azureRegion,
+        voiceProvider: azureVoiceProvider,
+        webiqEnabled: azureEnableWebIQ
     });
 
     if (azureEndpoint && azureRegion) {
@@ -352,7 +356,11 @@ function triggerAzureWebSocketInit(profile = 'interview', language = 'en-US') {
             azureRegion,
             localStorage.getItem('customPrompt') || '',
             profile,
-            language
+            language,
+            {
+                voiceProvider: azureVoiceProvider,
+                enableWebIQ: azureEnableWebIQ
+            }
         )
             .then(success => {
                 console.log('[renderer] initialize-azure-realtime IPC call result:', success);

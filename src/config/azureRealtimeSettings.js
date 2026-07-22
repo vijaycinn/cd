@@ -97,6 +97,71 @@ const DEFAULT_TEMPLATE = {
         max_response_output_tokens: 4096,
         max_input_tokens: null
     },
+    voiceProvider: 'azure-realtime',
+    voiceLive: {
+        _comment: [
+            'Optional Voice Live WebSocket mode. Supported values use WebSocket only; WebRTC remains deprecated.',
+            'Enable by setting voiceProvider to voice-live here or choosing Voice Live in the Azure advanced UI.',
+            'apiVersion: Voice Live API version used in the WebSocket URL.',
+            'outputModalities: ["text"] for fastest response (no TTS). ["text","audio"] for voice output.',
+            'maxResponseOutputTokens: cap output tokens for speed (default 200). Set "inf" for unlimited.',
+            'temperature: 0.6 for fastest, most deterministic. Range [0.6, 1.2].',
+            'transcriptionModel: primary transcription model (mai-transcribe for Voice Live non-realtime models).',
+            'realtimeTranscriptionFallback: fallback model when using azure-realtime provider.',
+            'modelAssistedSummary: enable model-assisted summarization of transcripts.',
+            'agent: optional Foundry Agent mode config for server-managed memory/context.'
+        ],
+        apiVersion: '2026-04-10',
+        voice: {
+            name: 'en-US-Ava:DragonHDLatestNeural',
+            type: 'azure-standard',
+            temperature: 0.8
+        },
+        semanticVad: {
+            enabled: true,
+            type: 'azure_semantic_vad_multilingual',
+            removeFillerWords: true,
+            interruptResponse: true,
+            autoTruncate: true
+        },
+        noiseSuppression: true,
+        echoCancellation: true,
+        outputModalities: ['text', 'audio'],
+        maxResponseOutputTokens: 200,
+        temperature: 0.8,
+        transcriptionModel: 'azure-speech',
+        realtimeTranscriptionFallback: 'whisper-1',
+        modelAssistedSummary: true,
+        agent: {
+            _comment: 'Foundry Agent mode: provides server-managed conversation memory via conversation_id.',
+            enabled: false,
+            agentName: '',
+            projectName: '',
+            agentVersion: null,
+            conversationId: null,
+            foundryResourceOverride: null
+        }
+    },
+    mcp: {
+        _comment: [
+            'Remote MCP servers exposed as tools to the Azure Realtime session.',
+            'WebIQ requires an API key via the x-apikey header.',
+            'Set the key via env WEBIQ_API_KEY (preferred) or apiKey below.'
+        ],
+        microsoftLearn: {
+            enabled: true,
+            url: 'https://learn.microsoft.com/api/mcp'
+        },
+        webiq: {
+            enabled: false,
+            url: 'https://api.microsoft.ai/v3/mcp',
+            apiKey: '',
+            apiKeyEnv: 'WEBIQ_API_KEY',
+            toolPrefix: 'webiq',
+            allowedTools: ['web', 'browse', 'news'],
+            timeoutMs: 2000
+        }
+    },
     vision: {
         _comment: [
             'Vision/screenshot analysis settings for Azure OpenAI.',
@@ -307,13 +372,71 @@ function applyEnvOverrides(settings) {
         eagerness: process.env.AZURE_REALTIME_VAD_EAGERNESS || overrides.serverVad.eagerness
     };
 
+    const configuredProvider = process.env.AZURE_VOICE_PROVIDER || overrides.voiceProvider;
+    overrides.voiceProvider = ['azure-realtime', 'voice-live'].includes(configuredProvider)
+        ? configuredProvider
+        : 'azure-realtime';
+
+    if (process.env.AZURE_VOICELIVE_TRANSCRIPTION_MODEL) {
+        overrides.voiceLive = {
+            ...overrides.voiceLive,
+            transcriptionModel: process.env.AZURE_VOICELIVE_TRANSCRIPTION_MODEL
+        };
+    }
+
+    if (process.env.AZURE_VOICELIVE_OUTPUT_MODALITIES) {
+        overrides.voiceLive = {
+            ...(overrides.voiceLive || {}),
+            outputModalities: process.env.AZURE_VOICELIVE_OUTPUT_MODALITIES.split(',').map((s) => s.trim()).filter(Boolean)
+        };
+    }
+
+    overrides.mcp = {
+        ...overrides.mcp,
+        microsoftLearn: {
+            ...overrides.mcp.microsoftLearn
+        },
+        webiq: {
+            ...overrides.mcp.webiq
+        }
+    };
+
+    const webiqApiKeyEnv = overrides.mcp.webiq.apiKeyEnv || 'WEBIQ_API_KEY';
+    const webiqEnvKey = process.env[webiqApiKeyEnv];
+    const webiqSettingsKey = overrides.mcp.webiq.apiKey;
+    overrides.mcp.webiq._resolvedKey = (webiqEnvKey || webiqSettingsKey || '').trim();
+
     return overrides;
 }
 
-function loadAzureRealtimeSettings() {
+function getMergedFileSettings() {
     ensureSettingsFileExists();
     const fileSettings = readSettingsFromFile();
-    const merged = deepMerge(DEFAULT_SETTINGS, fileSettings);
+    return deepMerge(DEFAULT_SETTINGS, fileSettings);
+}
+
+function getStoredWebIQApiKey() {
+    const mergedSettings = getMergedFileSettings();
+    const webiqApiKey = mergedSettings?.mcp?.webiq?.apiKey;
+    return typeof webiqApiKey === 'string' ? webiqApiKey.trim() : '';
+}
+
+function setStoredWebIQApiKey(apiKey) {
+    const mergedSettings = getMergedFileSettings();
+    if (!mergedSettings.mcp || typeof mergedSettings.mcp !== 'object') {
+        mergedSettings.mcp = {};
+    }
+    if (!mergedSettings.mcp.webiq || typeof mergedSettings.mcp.webiq !== 'object') {
+        mergedSettings.mcp.webiq = {};
+    }
+
+    mergedSettings.mcp.webiq.apiKey = typeof apiKey === 'string' ? apiKey.trim() : '';
+    maybeUpdateSettingsFile(mergedSettings);
+    return mergedSettings.mcp.webiq.apiKey;
+}
+
+function loadAzureRealtimeSettings() {
+    const merged = getMergedFileSettings();
     maybeUpdateSettingsFile(merged);
     const withEnvOverrides = applyEnvOverrides(merged);
 
@@ -335,5 +458,7 @@ function loadAzureRealtimeSettings() {
 
 module.exports = {
     loadAzureRealtimeSettings,
-    DEFAULT_SETTINGS
+    DEFAULT_SETTINGS,
+    getStoredWebIQApiKey,
+    setStoredWebIQApiKey
 };

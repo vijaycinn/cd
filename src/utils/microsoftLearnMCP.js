@@ -7,14 +7,10 @@
  * This uses the @modelcontextprotocol/sdk with HTTP transport (not stdio)
  */
 
-const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
-const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js');
+const { defaultRegistry } = require('./mcpRegistry.js');
 
 class MicrosoftLearnMCPClient {
     constructor() {
-        this.client = null;
-        this.transport = null;
-        this.tools = [];
         this.connected = false;
         this.serverUrl = 'https://learn.microsoft.com/api/mcp';
     }
@@ -30,35 +26,23 @@ class MicrosoftLearnMCPClient {
 
         try {
             console.log('[MCP] Connecting to Microsoft Learn MCP server...');
+            defaultRegistry.registerServer({
+                id: 'microsoftLearn',
+                url: this.serverUrl,
+                toolPrefix: '',
+                enabled: true
+            });
 
-            // Create StreamableHTTP transport for HTTP-based MCP
-            this.transport = new StreamableHTTPClientTransport(new URL(this.serverUrl));
+            const results = await defaultRegistry.connectAll();
+            const learnResult = results.find(result => result.id === 'microsoftLearn');
+            this.connected = !!learnResult?.connected;
 
-            // Create MCP client
-            this.client = new Client(
-                {
-                    name: 'sound-board',
-                    version: '0.4.0'
-                },
-                {
-                    capabilities: {
-                        tools: {}
-                    }
-                }
-            );
+            if (this.connected) {
+                const tools = this.getRawTools();
+                console.log(`[MCP] Microsoft Learn provides ${tools.length} tools:`, tools.map(t => t.name).join(', '));
+            }
 
-            // Connect to server
-            await this.client.connect(this.transport);
-            console.log('[MCP] Connected to Microsoft Learn MCP server');
-
-            // List available tools
-            const toolsResponse = await this.client.listTools();
-            this.tools = toolsResponse.tools || [];
-            console.log(`[MCP] Microsoft Learn provides ${this.tools.length} tools:`, 
-                this.tools.map(t => t.name).join(', '));
-
-            this.connected = true;
-            return true;
+            return this.connected;
 
         } catch (error) {
             console.error('[MCP] Failed to connect to Microsoft Learn:', error);
@@ -77,12 +61,7 @@ class MicrosoftLearnMCPClient {
 
         try {
             console.log('[MCP] Disconnecting from Microsoft Learn...');
-            if (this.client) {
-                await this.client.close();
-            }
-            this.client = null;
-            this.transport = null;
-            this.tools = [];
+            await defaultRegistry.disconnectAll();
             this.connected = false;
             console.log('[MCP] Disconnected from Microsoft Learn');
         } catch (error) {
@@ -95,11 +74,12 @@ class MicrosoftLearnMCPClient {
      * Returns tools in Azure OpenAI function format
      */
     getTools() {
-        if (!this.connected || this.tools.length === 0) {
+        const server = defaultRegistry.servers.get('microsoftLearn');
+        if (!this.connected || !server?.connected || server.tools.length === 0) {
             return [];
         }
 
-        return this.tools.map(tool => ({
+        return server.tools.map(tool => ({
             type: 'function',
             name: tool.name,
             description: tool.description || 'Microsoft Learn MCP tool',
@@ -122,17 +102,9 @@ class MicrosoftLearnMCPClient {
         try {
             console.log(`[MCP] Calling tool: ${toolName}`, args);
 
-            const result = await this.client.callTool({
-                name: toolName,
-                arguments: args
-            });
-
+            const result = await defaultRegistry.callTool(toolName, args);
             console.log(`[MCP] Tool ${toolName} result:`, result);
-
-            return {
-                success: true,
-                content: result.content || []
-            };
+            return result;
 
         } catch (error) {
             console.error(`[MCP] Tool call ${toolName} failed:`, error);
@@ -154,12 +126,18 @@ class MicrosoftLearnMCPClient {
      * Get connection status
      */
     getStatus() {
+        const tools = this.getRawTools();
         return {
             connected: this.connected,
             serverUrl: this.serverUrl,
-            toolCount: this.tools.length,
-            tools: this.tools.map(t => ({ name: t.name, description: t.description }))
+            toolCount: tools.length,
+            tools: tools.map(t => ({ name: t.name, description: t.description }))
         };
+    }
+
+    getRawTools() {
+        const server = defaultRegistry.servers.get('microsoftLearn');
+        return server?.tools || [];
     }
 }
 

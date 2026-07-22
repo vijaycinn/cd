@@ -127,6 +127,25 @@ function setupGeneralIpcHandlers() {
         }
     });
 
+    ipcMain.handle('get-azure-webiq-settings', async event => {
+        try {
+            const { loadAzureRealtimeSettings, getStoredWebIQApiKey } = require('./config/azureRealtimeSettings.js');
+            const realtimeSettings = loadAzureRealtimeSettings();
+            const apiKeyEnv = realtimeSettings?.mcp?.webiq?.apiKeyEnv || 'WEBIQ_API_KEY';
+            const envValue = process.env[apiKeyEnv];
+
+            return {
+                success: true,
+                apiKey: getStoredWebIQApiKey(),
+                apiKeyFromEnv: typeof envValue === 'string' && envValue.trim().length > 0,
+                apiKeyEnv
+            };
+        } catch (error) {
+            console.error('Error getting Azure WebIQ settings:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     ipcMain.handle('set-audio-mode', async (event, mode) => {
         try {
             audioRouter.setAudioMode(mode);
@@ -190,10 +209,13 @@ function setupGeneralIpcHandlers() {
     });
 
     // Azure Realtime IPC handlers
-    ipcMain.handle('initialize-azure-realtime', async (event, azureEndpoint, azureDeployment, azureRegion, customPrompt, profile, language) => {
+    ipcMain.handle('initialize-azure-realtime', async (event, azureEndpoint, azureDeployment, azureRegion, customPrompt, profile, language, runtimeOptions = {}) => {
         try {
             // This tenant uses Entra ID auth only; API keys are intentionally disabled.
             const apiKeyFallback = null;
+            const safeRuntimeOptions = runtimeOptions && typeof runtimeOptions === 'object' ? runtimeOptions : {};
+            const voiceProvider = safeRuntimeOptions.voiceProvider === 'voice-live' ? 'voice-live' : 'azure-realtime';
+            const enableWebIQ = safeRuntimeOptions.enableWebIQ === true;
 
             console.log('[index.js] initialize-azure-realtime called with parameters - switching to WebSocket:', {
                 usingApiKey: false,
@@ -202,6 +224,8 @@ function setupGeneralIpcHandlers() {
                 hasEndpoint: !!azureEndpoint,
                 deployment: azureDeployment,
                 region: azureRegion,
+                voiceProvider,
+                webiqEnabled: enableWebIQ,
                 profile,
                 language
             });
@@ -209,7 +233,10 @@ function setupGeneralIpcHandlers() {
             const { AzureRealtimeWebSocketService } = require('./utils/azureRealtimeWebSocket.js');
 
             // Create AzureRealtimeWebSocketService (apiKeyFallback may be null when managed identity is active)
-            const azureService = new AzureRealtimeWebSocketService(apiKeyFallback, azureEndpoint, azureDeployment, azureRegion, customPrompt, profile, language);
+            const azureService = new AzureRealtimeWebSocketService(apiKeyFallback, azureEndpoint, azureDeployment, azureRegion, customPrompt, profile, language, {
+                voiceProvider,
+                enableWebIQ
+            });
 
             // Set up callbacks to send updates to renderer
             azureService.setCallbacks({

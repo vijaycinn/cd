@@ -32,10 +32,26 @@ const DEFAULT_TEMPLATE = {
     ],
     debug: false,
     sampleRate: 24000,
+    auth: {
+        _comment: [
+            'Entra ID (keyless) authentication settings.',
+            'tenantId: set this when the Foundry resource lives in a DIFFERENT tenant than the one',
+            '  your az login / azd login currently targets. Symptom of a mismatch is a 400 handshake',
+            '  failure with "Token tenant <guid> does not match resource tenant".',
+            'Leave blank to use the credential chain default. Env AZURE_TENANT_ID is used when blank.'
+        ],
+        tenantId: ''
+    },
     streaming: {
-        _comment: 'How frequently audio chunks are flushed to Azure (in bytes/ms).',
-        minChunkBytes: 4800,
-        chunkFlushIntervalMs: 200
+        _comment: [
+            'How frequently audio chunks are flushed to Azure (in bytes/ms).',
+            'This is a direct tax on turn-end latency: the tail of an utterance sits in this buffer,',
+            'and the server cannot detect end-of-speech on audio it has not received yet.',
+            'Flush happens on whichever comes first - the interval or the byte count.',
+            'minChunkBytes 1920 = 40ms at 24kHz 16-bit mono.'
+        ],
+        minChunkBytes: 1920,
+        chunkFlushIntervalMs: 60
     },
     silenceGate: {
         _comment: 'Client-side silence detection before audio is sent to Azure.',
@@ -105,10 +121,12 @@ const DEFAULT_TEMPLATE = {
             'apiVersion: Voice Live API version used in the WebSocket URL.',
             'outputModalities: ["text"] for fastest response (no TTS). ["text","audio"] for voice output.',
             'maxResponseOutputTokens: cap output tokens for speed (default 200). Set "inf" for unlimited.',
-            'temperature: 0.6 for fastest, most deterministic. Range [0.6, 1.2].',
-            'transcriptionModel: primary transcription model (mai-transcribe for Voice Live non-realtime models).',
-            'realtimeTranscriptionFallback: fallback model when using azure-realtime provider.',
+            'temperature: null omits the field so the model default applies. REQUIRED for gpt-5-nano and',
+            '  other models that reject any value except the default — sending one fails EVERY response.',
+            'transcriptionModel: primary transcription model for non-multimodal models (azure-speech default, mai-transcribe is preview).',
+            'realtimeTranscriptionFallback: used only for gpt-realtime/gpt-realtime-mini, which cannot use azure-speech.',
             'modelAssistedSummary: enable model-assisted summarization of transcripts.',
+            'interimResponse: spoken filler that bridges dead air. CASCADED MODELS ONLY — not supported by realtime audio models.',
             'agent: optional Foundry Agent mode config for server-managed memory/context.'
         ],
         apiVersion: '2026-04-10',
@@ -118,20 +136,76 @@ const DEFAULT_TEMPLATE = {
             temperature: 0.8
         },
         semanticVad: {
+            _comment: [
+                'type: azure_semantic_vad is English-focused; azure_semantic_vad_multilingual covers',
+                '  en, es, fr, it, de, ja, pt, zh, ko, hi. This app pins output to English (auth.* / language),',
+                '  so the multilingual variant is pure overhead. Switch it back only if you accept non-English input.',
+                'Both types accept the languages[] hint, which is set from the session language.',
+                'silenceDurationMs is the FALLBACK turn-end timer (service default 500). Set ABOVE the',
+                '  default on purpose: a mid-question thinking pause runs 300-800ms, and endOfUtterance',
+                '  below is what keeps this from costing latency on turns that are genuinely finished.',
+                'speechDurationMs is the minimum speech length before a turn starts (service default 80).',
+                'removeFillerWords stops "um"/"uh" from ending a turn - keep it on for question capture.'
+            ],
             enabled: true,
-            type: 'azure_semantic_vad_multilingual',
+            type: 'azure_semantic_vad',
             removeFillerWords: true,
             interruptResponse: true,
-            autoTruncate: true
+            autoTruncate: true,
+            createResponse: true,
+            silenceDurationMs: 600,
+            speechDurationMs: 80,
+            endOfUtterance: {
+                _comment: [
+                    'Semantic end-of-utterance detection. Without it the turn ends ONLY on the silence timer,',
+                    'so every natural mid-question pause either cuts the user off or costs the full timer.',
+                    'MS Learn: "significantly reduce premature end-of-turn signals without adding',
+                    '  user-perceivable latency". This is what buys speed WITHOUT truncating questions.',
+                    'thresholdLevel: DELIBERATELY BLANK -> service default (medium).',
+                    '  The docs are self-contradictory on direction: the `threshold` field says "a higher',
+                    '  threshold requires a higher confidence signal", but `threshold_level` says "with a',
+                    '  lower setting the probability the sentence is complete will be higher".',
+                    '  Do not guess. To tune, change ONE step and listen for truncated questions:',
+                    '  if questions get cut off, try the opposite end from whichever you tried first.',
+                    'timeoutMs caps how long the detector may deliberate before the silence timer takes over.',
+                    'https://learn.microsoft.com/azure/ai-services/speech-service/voice-live-api-reference-2026-04-10'
+                ],
+                enabled: true,
+                thresholdLevel: '',
+                timeoutMs: 1200
+            }
         },
         noiseSuppression: true,
         echoCancellation: true,
         outputModalities: ['text', 'audio'],
         maxResponseOutputTokens: 200,
-        temperature: 0.8,
+        temperature: null,
         transcriptionModel: 'azure-speech',
-        realtimeTranscriptionFallback: 'whisper-1',
+        realtimeTranscriptionFallback: 'gpt-4o-mini-transcribe',
         modelAssistedSummary: true,
+        interimResponse: {
+            _comment: [
+                'Bridges wait time with short spoken filler so the user does not hear silence.',
+                'Attacks PERCEIVED latency, which is what matters for live meeting assistance.',
+                'HARD CONSTRAINT (MS Learn): model mode supports interim responses only with text LLMs',
+                'in cascaded mode plus azure-speech voice output. Realtime audio models do NOT support it.',
+                'mode: static (no extra inference cost, deterministic) or llm (context-aware, costs tokens).',
+                'triggers: latency (response slower than threshold) and/or tool (tool call running).',
+                'https://learn.microsoft.com/azure/ai-services/speech-service/how-to-voice-live-interim-response'
+            ],
+            enabled: true,
+            mode: 'static',
+            triggers: ['tool', 'latency'],
+            latencyThresholdMs: 600,
+            texts: [
+                'One moment.',
+                'Let me pull that up.',
+                'Checking on that now.'
+            ],
+            model: 'gpt-4.1-mini',
+            instructions: 'Produce a very short, natural filler acknowledging a brief wait. Do not answer the question.',
+            maxCompletionTokens: 50
+        },
         agent: {
             _comment: 'Foundry Agent mode: provides server-managed conversation memory via conversation_id.',
             enabled: false,
@@ -146,20 +220,45 @@ const DEFAULT_TEMPLATE = {
         _comment: [
             'Remote MCP servers exposed as tools to the Azure Realtime session.',
             'WebIQ requires an API key via the x-apikey header.',
-            'Set the key via env WEBIQ_API_KEY (preferred) or apiKey below.'
+            'Set the key via env WEBIQ_API_KEY (preferred) or apiKey below.',
+            'On the Voice Live path these are SERVER-side MCP (type: mcp): Azure calls the endpoint',
+            '  itself, inline in the turn. The client never sees the HTTP request, so the 2s timeout',
+            '  used for client-side tools does NOT apply. MS Learn measures these at 3-60+ seconds.',
+            'requireApproval defaults to "never" so Azure runs the lookup inline. Setting it to',
+            '  "always" adds a client round-trip per call and costs an extra turn; use it only when',
+            '  you need the maxCallsPerTurn cap below, and expect slower answers.',
+            'timeoutMs applies to the CLIENT-side path only (voiceProvider azure-realtime). Learn is',
+            '  documented at 3-60s, so a short budget here just converts every lookup into a timeout.'
         ],
+        // The model only requests a lookup when it does NOT know; denying those turns is backwards.
+        gating: {
+            _comment: [
+                'Loop guard for server-side MCP calls, applied only when requireApproval is "always".',
+                'Approval is granted by default: a tool request IS the signal that the answer is not',
+                'in the model\'s training data, so denying it produces a confident wrong answer',
+                'instead of a grounded one.',
+                'maxCallsPerTurn caps runaway tool chains, which is where the multi-second turns come',
+                'from - a single lookup is usually fine, three in a row is not.',
+                'The counter resets when the user starts a new turn.'
+            ],
+            enabled: true,
+            maxCallsPerTurn: 2
+        },
         microsoftLearn: {
             enabled: true,
-            url: 'https://learn.microsoft.com/api/mcp'
+            requireApproval: 'never',
+            url: 'https://learn.microsoft.com/api/mcp',
+            timeoutMs: 8000
         },
         webiq: {
-            enabled: false,
+            enabled: true,
+            requireApproval: 'never',
             url: 'https://api.microsoft.ai/v3/mcp',
             apiKey: '',
             apiKeyEnv: 'WEBIQ_API_KEY',
             toolPrefix: 'webiq',
             allowedTools: ['web', 'browse', 'news'],
-            timeoutMs: 2000
+            timeoutMs: 8000
         }
     },
     vision: {
@@ -435,6 +534,77 @@ function setStoredWebIQApiKey(apiKey) {
     return mergedSettings.mcp.webiq.apiKey;
 }
 
+let _driftReported = false;
+
+// Computed at load time and then persisted, so they always differ from the shipped placeholder.
+const DERIVED_SETTING_KEYS = new Set(['commits.minCommitBytes']);
+
+// The drift warning prints values, so anything secret-shaped must never reach the console.
+const SECRET_KEY_PATTERN = /key|secret|token|password|credential|authorization/i;
+
+function describeDriftValue(keyPath, value) {
+    if (!SECRET_KEY_PATTERN.test(keyPath)) {
+        return JSON.stringify(value);
+    }
+    if (value === '' || value === null || value === undefined) {
+        return '(empty)';
+    }
+    return `(set, ${String(value).length} chars)`;
+}
+
+/**
+ * Values in the user's settings file win over DEFAULT_TEMPLATE, so a stale entry silently
+ * defeats any change to a shipped default. Surface the differences instead.
+ *
+ * @returns {Array<{ key: string, live: unknown, shipped: unknown }>}
+ */
+function collectSettingsDrift(shipped, effective, prefix = '') {
+    const drift = [];
+    if (!effective || typeof effective !== 'object' || Array.isArray(effective)) {
+        return drift;
+    }
+
+    for (const [key, liveValue] of Object.entries(effective)) {
+        if (key.startsWith('_') || !shipped || !(key in shipped)) {
+            continue;
+        }
+        const shippedValue = shipped[key];
+        const bothObjects = shippedValue && typeof shippedValue === 'object' && !Array.isArray(shippedValue)
+            && liveValue && typeof liveValue === 'object' && !Array.isArray(liveValue);
+
+        const path = `${prefix}${key}`;
+        if (bothObjects) {
+            drift.push(...collectSettingsDrift(shippedValue, liveValue, `${path}.`));
+        } else if (!DERIVED_SETTING_KEYS.has(path) && JSON.stringify(shippedValue) !== JSON.stringify(liveValue)) {
+            drift.push({ key: path, live: liveValue, shipped: shippedValue });
+        }
+    }
+    return drift;
+}
+
+function logSettingsDrift(effective) {
+    if (_driftReported) {
+        return;
+    }
+    _driftReported = true;
+
+    const drift = collectSettingsDrift(DEFAULT_SETTINGS, effective);
+    if (drift.length === 0) {
+        return;
+    }
+
+    console.warn(
+        `[AzureRealtimeSettings] ${drift.length} setting(s) override the shipped defaults ` +
+        `(${getSettingsFilePath()}). Delete a line there to pick up the default:`
+    );
+    for (const entry of drift) {
+        console.warn(
+            `  ${entry.key}: live=${describeDriftValue(entry.key, entry.live)} ` +
+            `shipped=${describeDriftValue(entry.key, entry.shipped)}`
+        );
+    }
+}
+
 function loadAzureRealtimeSettings() {
     const merged = getMergedFileSettings();
     maybeUpdateSettingsFile(merged);
@@ -453,11 +623,14 @@ function loadAzureRealtimeSettings() {
         withEnvOverrides.model.temperature = 0.6;
     }
 
+    logSettingsDrift(withEnvOverrides);
+
     return withEnvOverrides;
 }
 
 module.exports = {
     loadAzureRealtimeSettings,
+    collectSettingsDrift,
     DEFAULT_SETTINGS,
     getStoredWebIQApiKey,
     setStoredWebIQApiKey

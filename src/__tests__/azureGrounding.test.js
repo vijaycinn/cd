@@ -364,7 +364,7 @@ describe('Azure Grounding Configuration', () => {
 
         expect(settings.mcp.webiq._resolvedKey).toBe('env-webiq-key');
         expect(fileContent).not.toContain('env-webiq-key');
-        expect(settings.mcp.webiq.enabled).toBe(false);
+        expect(settings.mcp.webiq.enabled).toBe(true);
     });
 
     it('getAzureToolsAsync includes WebIQ registry tools only when enabled and key is present', async () => {

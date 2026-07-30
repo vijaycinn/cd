@@ -289,6 +289,43 @@ export class AssistantView extends LitElement {
         .save-button svg {
             stroke: currentColor !important;
         }
+
+        /* Deliberately not an icon button: it sat between three identical icons and read as noise. */
+        .expand-button {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            height: 36px;
+            padding: 0 12px;
+            border: 1px solid var(--button-border);
+            border-radius: 18px;
+            background: transparent;
+            color: var(--start-button-background);
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .expand-button svg {
+            stroke: currentColor !important;
+            flex-shrink: 0;
+        }
+
+        .expand-button:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .expand-button:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+
+        .expand-button kbd {
+            font-family: inherit;
+            font-size: 10px;
+            opacity: 0.6;
+        }
     `;
 
     static properties = {
@@ -534,6 +571,14 @@ export class AssistantView extends LitElement {
         // Add event listener to the entire view
         this.addEventListener('contextmenu', this.handleContextMenu);
 
+        this.handleExpandShortcut = e => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+                e.preventDefault();
+                this.handleExpandResponse();
+            }
+        };
+        window.addEventListener('keydown', this.handleExpandShortcut);
+
         // Set up IPC listeners for keyboard shortcuts
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
@@ -571,6 +616,10 @@ export class AssistantView extends LitElement {
         // Remove right-click handler
         if (this.handleContextMenu) {
             this.removeEventListener('contextmenu', this.handleContextMenu);
+        }
+
+        if (this.handleExpandShortcut) {
+            window.removeEventListener('keydown', this.handleExpandShortcut);
         }
 
         // Clean up IPC listeners
@@ -623,12 +672,37 @@ export class AssistantView extends LitElement {
         }
     }
 
+    // The first answer is optimised for speed; expanding re-asks with an explicit demand for sources,
+    // which is what makes the model spend a lookup instead of answering from memory.
+    async handleExpandResponse() {
+        const current = this.getCurrentResponse();
+        if (!current) return;
+
+        const followUp =
+            'Expand on your previous answer. Verify it against Microsoft Learn first, then the web if Learn ' +
+            'has nothing. Give more depth, name the exact products and features, and cite the source for each ' +
+            'claim. If you cannot verify something, say so explicitly rather than asserting it.';
+
+        const llmService = localStorage.getItem('llmService') || 'gemini';
+        if (llmService === 'azure') {
+            const result = await window.cheddar.sendAzureTextMessage(followUp);
+            if (!result.success) {
+                console.error('[AssistantView] Expand request failed:', result.error);
+                return;
+            }
+        } else {
+            await this.onSendText(followUp);
+        }
+        this._awaitingNewResponse = true;
+    }
+
     handleTextKeydown(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             this.handleSendText();
         }
     }
+
 
     scrollToBottom() {
         setTimeout(() => {
@@ -733,6 +807,18 @@ export class AssistantView extends LitElement {
                 </button>
 
                 ${this.responses.length > 0 ? html` <span class="response-counter">${responseCounter}</span> ` : ''}
+
+                <button
+                    class="expand-button"
+                    @click=${this.handleExpandResponse}
+                    ?disabled=${!currentResponse}
+                    title="Re-ask with sources (Microsoft Learn first) — Ctrl+E"
+                >
+                    <svg width="16px" height="16px" viewBox="0 0 24 24" fill="none" stroke-width="1.7" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 3H3v6M15 21h6v-6M3 3l7 7M21 21l-7-7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                    Go deeper <kbd>Ctrl+E</kbd>
+                </button>
 
                 <button
                     class="save-button ${isSaved ? 'saved' : ''}"

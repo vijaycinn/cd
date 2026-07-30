@@ -11,18 +11,67 @@
 // Never send raw tokens to the renderer process.
 
 const { DefaultAzureCredential } = require('@azure/identity');
+const { loadAzureRealtimeSettings } = require('../config/azureRealtimeSettings.js');
 
 const COGNITIVE_SERVICES_SCOPE = 'https://cognitiveservices.azure.com/.default';
+const FOUNDRY_SCOPE = 'https://ai.azure.com/.default';
 
-// Singleton credential instance — token caching and refresh are managed internally
-// by the Azure Identity library; do not create multiple instances.
-let _credential = null;
+let _defaultTenantId;
 
-function getCredential() {
-    if (!_credential) {
-        _credential = new DefaultAzureCredential();
+/**
+ * Tenant every credential targets unless a caller overrides it.
+ * Settings win over the env var so the app can point at a resource in another tenant
+ * without changing the machine-wide az login.
+ *
+ * @returns {string|null}
+ */
+function getDefaultTenantId() {
+    if (_defaultTenantId === undefined) {
+        let configured = '';
+        try {
+            configured = (loadAzureRealtimeSettings().auth?.tenantId || '').trim();
+        } catch {
+            configured = '';
+        }
+        _defaultTenantId = configured || (process.env.AZURE_TENANT_ID || '').trim() || null;
     }
-    return _credential;
+    return _defaultTenantId;
+}
+
+// One credential per tenant; the identity library handles expiry and refresh internally.
+const _credentials = new Map();
+
+function getCredential(tenantId) {
+    const key = tenantId || '__default__';
+    if (!_credentials.has(key)) {
+        // additionallyAllowedTenants is required for the CLI credential to mint a token
+        // for a tenant other than the one it is currently logged into.
+        const options = tenantId
+            ? { tenantId, additionallyAllowedTenants: [tenantId] }
+            : {};
+        _credentials.set(key, new DefaultAzureCredential(options));
+    }
+    return _credentials.get(key);
+}
+
+/**
+ * Extract non-sensitive claims for diagnostics. Never returns or logs the token itself.
+ *
+ * @param {string} token
+ * @returns {{ tid: string|null, aud: string|null }|null}
+ */
+function describeToken(token) {
+    try {
+        const payload = String(token).split('.')[1];
+        if (!payload) {
+            return null;
+        }
+        const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+        const claims = JSON.parse(Buffer.from(normalized, 'base64').toString('utf8'));
+        return { tid: claims.tid || null, aud: claims.aud || null };
+    } catch {
+        return null;
+    }
 }
 
 /**
@@ -30,10 +79,12 @@ function getCredential() {
  * The credential library handles expiry and transparent refresh.
  *
  * @param {string} [scope]
+ * @param {string} [tenantId] Target tenant; omit to use the configured default.
  * @returns {Promise<import('@azure/identity').AccessToken>}
  */
-async function getToken(scope = COGNITIVE_SERVICES_SCOPE) {
-    const token = await getCredential().getToken(scope);
+async function getToken(scope = COGNITIVE_SERVICES_SCOPE, tenantId = undefined) {
+    const targetTenant = tenantId === undefined ? getDefaultTenantId() : tenantId;
+    const token = await getCredential(targetTenant).getToken(scope);
     if (!token || !token.token) {
         throw new Error('DefaultAzureCredential returned an empty token');
     }
@@ -43,15 +94,23 @@ async function getToken(scope = COGNITIVE_SERVICES_SCOPE) {
 /**
  * Probe whether a credential can be resolved (without throwing to the caller).
  *
- * @returns {Promise<{ ok: boolean, reason?: string }>}
+ * @param {string} [tenantId]
+ * @returns {Promise<{ ok: boolean, reason?: string, tid?: string|null }>}
  */
-async function checkAuth() {
+async function checkAuth(tenantId = undefined) {
     try {
-        await getToken();
-        return { ok: true };
+        const token = await getToken(COGNITIVE_SERVICES_SCOPE, tenantId);
+        return { ok: true, tid: describeToken(token.token)?.tid ?? null };
     } catch (err) {
         return { ok: false, reason: err.message };
     }
 }
 
-module.exports = { getToken, checkAuth, COGNITIVE_SERVICES_SCOPE };
+module.exports = {
+    getToken,
+    checkAuth,
+    describeToken,
+    getDefaultTenantId,
+    COGNITIVE_SERVICES_SCOPE,
+    FOUNDRY_SCOPE
+};

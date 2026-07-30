@@ -5,6 +5,21 @@ const { loadAzureRealtimeSettings } = require('../config/azureRealtimeSettings.j
 const { defaultRegistry: mcpRegistry } = require('./mcpRegistry.js');
 const { SessionContextManager } = require('./sessionContextManager.js');
 
+// Models Voice Live hosts itself. Anything else needs a BYOM `profile` query param, which this
+// client does not send. https://learn.microsoft.com/azure/ai-services/speech-service/voice-live
+const VOICE_LIVE_PREDEPLOYED_MODELS = new Set([
+    'gpt-realtime-1.5', 'gpt-realtime', 'gpt-realtime-mini',
+    'gpt-4o', 'gpt-4o-mini',
+    'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano',
+    'gpt-5.4', 'gpt-5.3-chat', 'gpt-5.2', 'gpt-5.2-chat',
+    'gpt-5.1', 'gpt-5.1-chat', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano',
+    'phi4-mm-realtime', 'phi4-mini', 'azure-realtime'
+]);
+
+// Microsoft Learn MCP is documented at 3-60s per call, so anything near the old 2s shared budget
+// guarantees a timeout and an ungrounded answer.
+const DEFAULT_MCP_TOOL_TIMEOUT_MS = 8000;
+
 class AzureRealtimeWebSocketService extends LLMService {
     constructor(apiKey, endpoint, deployment, region, customPrompt, profile, language, options = {}) {
         super(apiKey, customPrompt, profile, language);
@@ -18,6 +33,12 @@ class AzureRealtimeWebSocketService extends LLMService {
         this.enableWebIQ = this.resolveBooleanOption(this.runtimeOptions.enableWebIQ, false);
         this.warnedMissingWebIQKey = false;
         this.lastTurnWasQuestion = false;
+        this.lastUserTranscript = '';
+        this.mcpCallsThisTurn = 0;
+        this.mcpToolsAttached = false;
+        this.mcpWarmUpPromise = null;
+        this.handledApprovalIds = new Set();
+        this.pendingMCPResume = false;
         this.isReplayingContext = false;
         this.contextReplayAttempts = 0;
         this.mcpRegistry = mcpRegistry;
@@ -85,6 +106,15 @@ class AzureRealtimeWebSocketService extends LLMService {
             } else if (deployment) {
                 websocketQuery.set('model', deployment);
                 console.log('[AzureWebSocket] Using Voice Live MODEL mode');
+                if (!VOICE_LIVE_PREDEPLOYED_MODELS.has(deployment.trim().toLowerCase())) {
+                    console.warn(
+                        `[AzureWebSocket] "${deployment}" is not a Voice Live pre-deployed model. ` +
+                        'The connection will likely fail before session.created. Either switch to a ' +
+                        'pre-deployed model (e.g. gpt-5-nano, gpt-5.4, gpt-realtime-mini) or connect via ' +
+                        'BYOM by adding profile=byom-azure-openai-chat-completion, which this client does not yet send. ' +
+                        'https://learn.microsoft.com/azure/ai-services/speech-service/how-to-bring-your-own-model'
+                    );
+                }
             }
             console.log('[AzureWebSocket] Using Voice Live WebSocket endpoint format');
         } else if (isPreviewModel) {
@@ -114,6 +144,7 @@ class AzureRealtimeWebSocketService extends LLMService {
         this.customPrompt = customPrompt;
         this.language = language || 'en-US';
         this.apiKey = typeof apiKey === 'string' ? apiKey.trim() : '';
+        this.authTenantId = require('./azureAuth.js').getDefaultTenantId();
 
         const streamingSettings = this.azureRealtimeSettings.streaming || {};
         const silenceSettings = this.azureRealtimeSettings.silenceGate || {};
@@ -146,6 +177,9 @@ class AzureRealtimeWebSocketService extends LLMService {
             audioBytesSent: 0,
             audioCommits: 0
         };
+        this.turnMarks = {};
+        this.lastAudioFlushTs = null;
+        this.temperatureUnsupported = false;
 
         this.silenceRmsFloor = silenceSettings.floor;
         if (this.silenceRmsThreshold < this.silenceRmsFloor) {
@@ -234,51 +268,166 @@ class AzureRealtimeWebSocketService extends LLMService {
             return this.getTurnDetectionConfig();
         }
 
-        return {
-            type: semanticVad.type || 'azure_semantic_vad_multilingual',
+        const type = semanticVad.type || 'azure_semantic_vad';
+        const turnDetection = {
+            type,
+            languages: [this.getPrimaryLanguage()],
             remove_filler_words: semanticVad.removeFillerWords !== false,
             interrupt_response: semanticVad.interruptResponse !== false,
-            auto_truncate: semanticVad.autoTruncate !== false
+            auto_truncate: semanticVad.autoTruncate !== false,
+            create_response: semanticVad.createResponse !== false
         };
+
+        if (Number.isFinite(semanticVad.silenceDurationMs)) {
+            turnDetection.silence_duration_ms = semanticVad.silenceDurationMs;
+        }
+        if (Number.isFinite(semanticVad.speechDurationMs)) {
+            turnDetection.speech_duration_ms = semanticVad.speechDurationMs;
+        }
+
+        const endOfUtterance = this.getEndOfUtteranceConfig(type);
+        if (endOfUtterance) {
+            turnDetection.end_of_utterance_detection = endOfUtterance;
+        }
+
+        return turnDetection;
+    }
+
+    // Without this the turn ends only when silence_duration_ms elapses, so a natural pause
+    // mid-question either cuts the user off or costs the full timer on every turn.
+    getEndOfUtteranceConfig(vadType) {
+        const eou = this.azureRealtimeSettings.voiceLive?.semanticVad?.endOfUtterance;
+        if (!eou || eou.enabled === false) {
+            return null;
+        }
+
+        const config = {
+            model: vadType === 'azure_semantic_vad_multilingual'
+                ? 'semantic_detection_v1_multilingual'
+                : 'semantic_detection_v1'
+        };
+        if (eou.thresholdLevel) {
+            config.threshold_level = eou.thresholdLevel;
+        }
+        if (Number.isFinite(eou.timeoutMs)) {
+            config.timeout_ms = eou.timeoutMs;
+        }
+        return config;
+    }
+
+    // Azure Speech auto-detects when unset, and one mis-detect flips the whole turn's language.
+    getPrimaryLanguage() {
+        return String(this.language || 'en-US').split('-')[0].toLowerCase();
     }
 
     getInputTranscriptionConfig() {
+        const language = this.getPrimaryLanguage();
         if (this.isVoiceLiveProvider()) {
             const voiceLiveSettings = this.azureRealtimeSettings.voiceLive || {};
-            // Per MS Learn docs: 'whisper-1' only works with gpt-realtime/gpt-realtime-mini.
-            // For all other models (gpt-5.4, gpt-4.1, etc.) use 'azure-speech' (default, auto-active).
-            // 'mai-transcribe' is a preview alternative.
+            // Per MS Learn: 'azure-speech' and 'mai-transcribe' work with every non-multimodal model;
+            // the whisper/gpt-4o-transcribe family works ONLY with gpt-realtime and gpt-realtime-mini.
             // https://learn.microsoft.com/azure/ai-services/speech-service/voice-live-how-to#audio-input-transcription
-            if (this.deployment && this.deployment.toLowerCase().includes('realtime')) {
-                return { model: voiceLiveSettings.realtimeTranscriptionFallback || 'whisper-1' };
+            if (!this.isCascadedModel()) {
+                return { model: voiceLiveSettings.realtimeTranscriptionFallback || 'gpt-4o-mini-transcribe', language };
             }
-            return { model: voiceLiveSettings.transcriptionModel || 'azure-speech' };
+            return { model: voiceLiveSettings.transcriptionModel || 'azure-speech', language };
         }
-        return { model: 'whisper-1' };
+        return { model: 'whisper-1', language };
+    }
+
+    // Non-multimodal models run Azure STT -> LLM -> Azure TTS; realtime models are native speech-to-speech.
+    isCascadedModel() {
+        return !(this.deployment && this.deployment.toLowerCase().includes('realtime'));
+    }
+
+    getVoiceLiveInterimResponseConfig() {
+        const interim = this.azureRealtimeSettings.voiceLive?.interimResponse;
+        if (!interim || interim.enabled === false) {
+            return null;
+        }
+
+        // MS Learn: model mode supports interim responses only with text LLMs in cascaded mode
+        // plus azure-speech output. Realtime audio models reject it.
+        if (!this.agentMode && !this.isCascadedModel()) {
+            console.log(`[AzureWebSocket] Skipping interim_response — "${this.deployment}" is a realtime audio model`);
+            return null;
+        }
+
+        const triggers = Array.isArray(interim.triggers) && interim.triggers.length > 0
+            ? interim.triggers
+            : ['latency'];
+        const latencyThresholdMs = Number.isFinite(interim.latencyThresholdMs) ? interim.latencyThresholdMs : 2000;
+
+        if (interim.mode === 'llm') {
+            return {
+                type: 'llm_interim_response',
+                triggers,
+                latency_threshold_ms: latencyThresholdMs,
+                model: interim.model || 'gpt-4.1-mini',
+                instructions: interim.instructions,
+                max_completion_tokens: interim.maxCompletionTokens || 50
+            };
+        }
+
+        const texts = Array.isArray(interim.texts) ? interim.texts.filter(Boolean) : [];
+        if (texts.length === 0) {
+            console.warn('[AzureWebSocket] interim_response mode is "static" but no texts configured — skipping');
+            return null;
+        }
+
+        return {
+            type: 'static_interim_response',
+            triggers,
+            latency_threshold_ms: latencyThresholdMs,
+            texts
+        };
     }
 
     getVoiceLiveVoiceConfig() {
         const voiceConfig = this.azureRealtimeSettings.voiceLive?.voice;
-        if (voiceConfig) return voiceConfig;
+        if (voiceConfig) return this.withSupportedVoiceTemperature(voiceConfig);
+
+        // The dedicated azure-realtime model only accepts its own native voice type, so it has
+        // to be matched before the generic "realtime" check below.
+        if (this.deployment === 'azure-realtime') {
+            return { type: 'azure-realtime-native', name: 'ava' };
+        }
 
         // Per MS Learn docs: non-realtime models (gpt-5.4, gpt-4.1, etc.) use Azure
         // standard TTS voices. Realtime models can use OpenAI native voices.
         // https://learn.microsoft.com/azure/ai-services/speech-service/voice-live-how-to#audio-output-through-azure-text-to-speech
-        if (this.deployment && this.deployment.toLowerCase().includes('realtime')) {
+        if (!this.isCascadedModel()) {
             return 'alloy'; // OpenAI native voice for realtime models
         }
-        return {
+        return this.withSupportedVoiceTemperature({
             name: 'en-US-Ava:DragonHDLatestNeural',
             type: 'azure-standard',
             temperature: 0.8
-        };
+        });
+    }
+
+    // MS Learn documents voice.temperature as applicable to Azure HD voices only; sending it for
+    // any other voice risks the same "unsupported value" rejection that killed the model temperature.
+    withSupportedVoiceTemperature(voice) {
+        if (typeof voice === 'string' || !voice || voice.temperature === undefined) {
+            return voice;
+        }
+        if (/:DragonHD/i.test(voice.name || '')) {
+            return voice;
+        }
+
+        const { temperature, ...withoutTemperature } = voice;
+        console.log(`[AzureWebSocket] Dropping voice.temperature - "${voice.name}" is not an Azure HD voice`);
+        return withoutTemperature;
     }
 
     buildSessionInstructions(basePrompt) {
         const contextSnapshot = this.sessionContext ? this.sessionContext.getPromptContext() : '';
         const { TALKING_POINT_PROMPT } = require('./talkingPointPrompt.js');
 
-        let instructions = TALKING_POINT_PROMPT + '\n\n';
+        // Kept first so the 2000-char tail truncation below can never drop it.
+        let instructions = `## OUTPUT LANGUAGE (ABSOLUTE)\nAlways write every response in ${this.language}, no matter what language the user speaks. Never mirror or switch to the user's language.\n\n`;
+        instructions += TALKING_POINT_PROMPT + '\n\n';
 
         if (contextSnapshot) {
             instructions += '## CONVERSATION CONTEXT\n' + contextSnapshot + '\n\n';
@@ -316,9 +465,13 @@ class AzureRealtimeWebSocketService extends LLMService {
                 input_audio_sampling_rate: sampleRate,
                 turn_detection: this.getVoiceLiveTurnDetectionConfig(),
                 input_audio_transcription: this.getInputTranscriptionConfig(),
-                temperature: voiceLive.temperature || 0.8,
                 max_response_output_tokens: voiceLive.maxResponseOutputTokens || 200
             };
+
+            // Some models (gpt-5-nano) reject any temperature but the default and fail every response.
+            if (Number.isFinite(voiceLive.temperature) && !this.temperatureUnsupported) {
+                session.temperature = voiceLive.temperature;
+            }
 
             // Voice config — required when audio modality is present
             if (requestedModalities.includes('audio')) {
@@ -340,6 +493,12 @@ class AzureRealtimeWebSocketService extends LLMService {
             }
             if (voiceLive.echoCancellation !== false) {
                 session.input_audio_echo_cancellation = { type: 'server_echo_cancellation' };
+            }
+
+            const interimResponse = this.getVoiceLiveInterimResponseConfig();
+            if (interimResponse) {
+                session.interim_response = interimResponse;
+                console.log('[AzureWebSocket] interim_response enabled:', interimResponse.type, interimResponse.triggers);
             }
 
             return {
@@ -490,8 +649,13 @@ class AzureRealtimeWebSocketService extends LLMService {
     /**
      * Get tools including MCP tools (async)
      * Call this during session initialization to include MCP tools
+     *
+     * @param {boolean} deferRegistryConnect Skip the client-side MCP handshake. The connect path
+     *   blocks audio until session.update lands, and the handshake is a live HTTP round trip to
+     *   every registered server, so the first utterance pays for it. warmUpMCPTools() attaches
+     *   those tools a moment later instead.
      */
-    async getAzureToolsAsync() {
+    async getAzureToolsAsync(deferRegistryConnect = false) {
         const tools = this.getAzureTools(); // Get localStorage tools
 
         try {
@@ -505,6 +669,10 @@ class AzureRealtimeWebSocketService extends LLMService {
             }
 
             this.configureMCPRegistry();
+            if (deferRegistryConnect) {
+                return tools;
+            }
+
             await this.mcpRegistry.connectAll();
             const mcpTools = this.mcpRegistry.getTools();
             if (mcpTools.length > 0) {
@@ -516,6 +684,41 @@ class AzureRealtimeWebSocketService extends LLMService {
         }
         
         return tools;
+    }
+
+    /**
+     * Connects the client-side MCP servers after the session is live and patches the tools into
+     * the session with a second session.update. Voice Live declares its servers inline, so there
+     * is nothing to fetch on that path.
+     */
+    async warmUpMCPTools() {
+        if (this.isVoiceLiveProvider() || this.mcpToolsAttached || this.mcpWarmUpPromise) {
+            return;
+        }
+
+        this.mcpWarmUpPromise = (async () => {
+            const startedAt = Date.now();
+            await this.mcpRegistry.connectAll();
+            const mcpTools = this.mcpRegistry.getTools();
+            const elapsed = Date.now() - startedAt;
+
+            const session = this.lastSessionConfig?.session;
+            if (mcpTools.length === 0 || !session) {
+                console.log(`[AzureWebSocket] MCP warm-up finished in ${elapsed}ms with no tools to attach`);
+                return;
+            }
+
+            session.tools = [...(session.tools || []), ...mcpTools];
+            this.mcpToolsAttached = true;
+            console.log(`[AzureWebSocket] MCP warm-up attached ${mcpTools.length} tool(s) after ${elapsed}ms`);
+            this.send(this.lastSessionConfig);
+        })()
+            .catch(error => console.warn('[AzureWebSocket] MCP warm-up failed:', error.message))
+            .finally(() => {
+                this.mcpWarmUpPromise = null;
+            });
+
+        return this.mcpWarmUpPromise;
     }
 
     configureMCPRegistry() {
@@ -532,7 +735,8 @@ class AzureRealtimeWebSocketService extends LLMService {
         }
 
         const webiqSettings = mcpSettings.webiq || {};
-        if (webiqSettings.enabled && this.enableWebIQ) {
+        // Config opt-in OR the runtime flag; must match the native-tool gate below.
+        if (webiqSettings.enabled === true || (webiqSettings.enabled !== false && this.enableWebIQ)) {
             const resolvedKey = webiqSettings._resolvedKey;
             if (resolvedKey) {
                 this.mcpRegistry.registerServer({
@@ -559,12 +763,13 @@ class AzureRealtimeWebSocketService extends LLMService {
                 type: 'mcp',
                 server_label: 'microsoftLearn',
                 server_url: mcpSettings.microsoftLearn?.url || 'https://learn.microsoft.com/api/mcp',
-                require_approval: 'never'
+                require_approval: mcpSettings.microsoftLearn?.requireApproval || 'never'
             });
         }
 
         const webiqSettings = mcpSettings.webiq || {};
-        if (webiqSettings.enabled && this.enableWebIQ) {
+        // Config opt-in OR the runtime flag; Learn stays first in the array as the preferred source.
+        if (webiqSettings.enabled === true || (webiqSettings.enabled !== false && this.enableWebIQ)) {
             const resolvedKey = webiqSettings._resolvedKey;
             if (resolvedKey) {
                 const webiqTool = {
@@ -572,7 +777,7 @@ class AzureRealtimeWebSocketService extends LLMService {
                     server_label: webiqSettings.toolPrefix || 'webiq',
                     server_url: webiqSettings.url || 'https://api.microsoft.ai/v3/mcp',
                     headers: { 'x-apikey': resolvedKey },
-                    require_approval: 'never'
+                    require_approval: webiqSettings.requireApproval || 'never'
                 };
 
                 if (Array.isArray(webiqSettings.allowedTools) && webiqSettings.allowedTools.length > 0) {
@@ -589,7 +794,73 @@ class AzureRealtimeWebSocketService extends LLMService {
         return tools;
     }
 
+    /**
+     * Azure surfaces the approval item under different event names depending on API version, and an
+     * unanswered request silently ends the turn ungrounded. Accept it from every carrier, once.
+     */
+    maybeHandleMCPApprovalRequest(item) {
+        if (item?.type !== 'mcp_approval_request') {
+            return;
+        }
+        if (item.id && this.handledApprovalIds.has(item.id)) {
+            return;
+        }
+        if (item.id) {
+            this.handledApprovalIds.add(item.id);
+        }
+        this.handleMCPApprovalRequest(item);
+    }
+
+    /**
+     * A tool request means the model judged its own knowledge insufficient, so denial trades a slow
+     * grounded answer for a fast wrong one. Approve by default; cap only runaway chains.
+     */
+    handleMCPApprovalRequest(item) {
+        const approvalId = item?.id;
+        if (!approvalId) {
+            console.warn('[AzureWebSocket] MCP approval request missing id; cannot respond');
+            return;
+        }
+
+        const label = `${item.server_label || 'unknown'}/${item.name || 'unknown'}`;
+        let approve = true;
+        let reason = 'model requested grounding';
+
+        try {
+            const gating = this.azureRealtimeSettings.mcp?.gating || {};
+            const maxCalls = gating.enabled === false ? Infinity : (gating.maxCallsPerTurn ?? 2);
+            if (this.mcpCallsThisTurn >= maxCalls) {
+                approve = false;
+                reason = `turn already used ${this.mcpCallsThisTurn} lookup(s), cap is ${maxCalls}`;
+            }
+        } catch (error) {
+            // Fail open: an ungrounded answer is worse than a slow one.
+            console.warn('[AzureWebSocket] MCP gating check failed, approving:', error.message);
+        }
+
+        if (approve) {
+            this.mcpCallsThisTurn += 1;
+        }
+
+        console.log(`[AzureWebSocket] MCP ${approve ? 'APPROVED' : 'DENIED'} ${label} - ${reason}`);
+        this.send({
+            type: 'conversation.item.create',
+            item: {
+                type: 'mcp_approval_response',
+                approval_request_id: approvalId,
+                approve
+            }
+        });
+
+        // The response that raised the request ends with it; without an explicit restart the
+        // approved lookup never runs and the turn dies on whatever the model guessed.
+        if (approve) {
+            this.pendingMCPResume = true;
+        }
+    }
+
     async resolveAuthHeaders(preferredMode = null) {
+
         const mode = preferredMode || (this.apiKey ? 'api-key' : 'managed-identity');
 
         if (mode === 'api-key') {
@@ -606,14 +877,36 @@ class AzureRealtimeWebSocketService extends LLMService {
         }
 
         const azureAuth = require('./azureAuth.js');
-        const tokenResult = await azureAuth.getToken();
+        const tokenResult = await azureAuth.getToken(azureAuth.COGNITIVE_SERVICES_SCOPE, this.authTenantId);
+        const claims = azureAuth.describeToken(tokenResult.token);
+        console.log('[AzureWebSocket] Bearer token acquired for tenant:', claims?.tid || 'unknown',
+            '| requested tenant:', this.authTenantId || '<credential default>');
         return {
             headers: {
                 'Authorization': `Bearer ${tokenResult.token}`,
                 'User-Agent': 'Azure-OpenAI-Node/1.0'
             },
-            mode: 'managed-identity'
+            mode: 'managed-identity',
+            tenantId: claims?.tid || null
         };
+    }
+
+    explainAuthFailure(error, attemptedAuth) {
+        if (!this.shouldRetryWithFallback(error, attemptedAuth.mode)) {
+            return;
+        }
+
+        if (attemptedAuth.mode === 'managed-identity') {
+            console.error(
+                '[AzureWebSocket] Entra token was issued for tenant ' +
+                `${attemptedAuth.tenantId || 'unknown'} but the resource at ${this.websocketUrl.split('?')[0]} ` +
+                'belongs to a different tenant. Fix by either: (a) setting auth.tenantId in ' +
+                'sound-board-config/azure-realtime-settings.json (or the AZURE_TENANT_ID env var) to the ' +
+                "resource's tenant, (b) running `az login --tenant <resource-tenant-id>`, or " +
+                '(c) confirming the configured endpoint points at the right resource. ' +
+                'No API key is configured, so there is no fallback auth path.'
+            );
+        }
     }
 
     getFallbackAuthMode(primaryMode) {
@@ -792,8 +1085,9 @@ class AzureRealtimeWebSocketService extends LLMService {
 
             // Get tools (including MCP tools) — non-fatal if this fails
             let tools = [];
+            this.mcpToolsAttached = false;
             try {
-                tools = await this.getAzureToolsAsync();
+                tools = await this.getAzureToolsAsync(true);
             } catch (toolErr) {
                 console.warn('[AzureWebSocket] Tool resolution failed (non-fatal):', toolErr.message);
             }
@@ -839,6 +1133,8 @@ class AzureRealtimeWebSocketService extends LLMService {
                 this.callbacks.onStatus('Connected');
             }
 
+            this.warmUpMCPTools();
+
             if (this._initSettleResolve) {
                 this._initSettleResolve(true);
                 this._initSettleResolve = null;
@@ -879,6 +1175,7 @@ class AzureRealtimeWebSocketService extends LLMService {
             } catch (primaryError) {
                 const fallbackMode = this.getFallbackAuthMode(primaryAuth.mode);
                 if (!fallbackMode || !this.shouldRetryWithFallback(primaryError, primaryAuth.mode)) {
+                    this.explainAuthFailure(primaryError, primaryAuth);
                     throw primaryError;
                 }
 
@@ -1000,10 +1297,77 @@ class AzureRealtimeWebSocketService extends LLMService {
         });
     }
 
+    resetTurnMarks() {
+        this.turnMarks = { lastAudioFlush: this.lastAudioFlushTs };
+    }
+
+    // First write wins so repeated deltas don't overwrite the first-output timestamp.
+    markTurn(name) {
+        if (!this.turnMarks) {
+            this.turnMarks = {};
+        }
+        if (this.turnMarks[name] === undefined) {
+            this.turnMarks[name] = Date.now();
+        }
+    }
+
+    logTurnLatency() {
+        const marks = this.turnMarks || {};
+        if (!marks.speechStopped) {
+            return;
+        }
+        const span = (from, to) => (marks[from] && marks[to] ? marks[to] - marks[from] : null);
+        const firstOutput = marks.firstAudioDelta || marks.firstTextDelta || null;
+
+        console.log('[AzureWebSocket] Turn latency (ms): %o', {
+            vadLag: span('lastAudioFlush', 'speechStopped'),
+            stt: span('speechStopped', 'transcriptionDone'),
+            responseQueue: span('speechStopped', 'responseCreated'),
+            llmTtft: marks.responseCreated && firstOutput ? firstOutput - marks.responseCreated : null,
+            mcp: span('mcpStarted', 'mcpDone'),
+            perceived: firstOutput ? firstOutput - marks.speechStopped : null,
+            total: span('speechStopped', 'responseDone'),
+            firstOutput: marks.firstAudioDelta ? 'audio' : (marks.firstTextDelta ? 'text' : 'none')
+        });
+        this.turnMarks = {};
+    }
+
+    /**
+     * A failed response otherwise looks identical to an empty one, so the turn dies silently.
+     * Returns true when a retry has been issued and the caller should stop processing.
+     */
+    handleFailedResponse(response) {
+        const detail = response?.status_details?.error?.message || 'unknown error';
+        console.error('[AzureWebSocket] Response FAILED:', detail);
+
+        const rejectsTemperature = /temperature.*does not support/i.test(detail);
+        const session = this.lastSessionConfig?.session;
+
+        if (rejectsTemperature && !this.temperatureUnsupported && session?.temperature !== undefined) {
+            this.temperatureUnsupported = true;
+            delete session.temperature;
+            console.warn(
+                `[AzureWebSocket] "${this.deployment}" only accepts its default temperature — ` +
+                'resending session without it and retrying. Set voiceLive.temperature to null in ' +
+                'sound-board-config/azure-realtime-settings.json to avoid the wasted turn.'
+            );
+            if (this.send(this.lastSessionConfig) && this.send({ type: 'response.create' })) {
+                return true;
+            }
+        }
+
+        if (this.callbacks.onError) {
+            this.callbacks.onError(new Error(`Response failed: ${detail}`));
+        }
+        return false;
+    }
+
     publishTextUpdate(force = false) {
         if (!this.textBuffer) {
             return;
         }
+
+        this.markTurn('firstTextDelta');
 
         const additionalChars = this.textBuffer.length - this.lastLoggedLength;
         if (additionalChars > 0) {
@@ -1051,11 +1415,49 @@ class AzureRealtimeWebSocketService extends LLMService {
                 break;
 
             case 'conversation.item.created':
+            case 'conversation.item.added':
+            case 'conversation.item.done':
                 this.debugLog('[AzureWebSocket] Conversation item created:', message.item?.id);
+                this.maybeHandleMCPApprovalRequest(message.item);
+                break;
+
+            // Server-side MCP is otherwise invisible to the client, which hides seconds of turn time.
+            case 'response.mcp_call.in_progress':
+                this.mcpCallStartedAt = Date.now();
+                this.markTurn('mcpStarted');
+                console.log('[AzureWebSocket] MCP call started:', message.item_id);
+                break;
+
+            case 'response.mcp_call.completed':
+                console.log('[AzureWebSocket] MCP call completed in',
+                    this.mcpCallStartedAt ? `${Date.now() - this.mcpCallStartedAt}ms` : 'unknown time');
+                this.mcpCallStartedAt = null;
+                this.markTurn('mcpDone');
+                break;
+
+            case 'response.mcp_call.failed':
+                console.error('[AzureWebSocket] MCP call FAILED:', message.item_id);
+                this.mcpCallStartedAt = null;
+                this.markTurn('mcpDone');
+                break;
+
+            // Azure fetches each declared server's tool list before it can answer, and that shows
+            // up as an unexplained stall on the first turn of a session.
+            case 'mcp_list_tools.in_progress':
+                this.mcpListToolsStartedAt = Date.now();
+                console.log('[AzureWebSocket] MCP tool listing started');
+                break;
+
+            case 'mcp_list_tools.completed':
+            case 'mcp_list_tools.failed':
+                console.log(`[AzureWebSocket] MCP tool listing ${message.type.endsWith('failed') ? 'FAILED' : 'completed'} in`,
+                    this.mcpListToolsStartedAt ? `${Date.now() - this.mcpListToolsStartedAt}ms` : 'unknown time');
+                this.mcpListToolsStartedAt = null;
                 break;
 
             case 'response.created':
                 this.debugLog('[AzureWebSocket] Response created');
+                this.markTurn('responseCreated');
                 this.textBuffer = '';
                 this.lastPublishedLength = 0;
                 this.lastLoggedLength = 0;
@@ -1069,7 +1471,9 @@ class AzureRealtimeWebSocketService extends LLMService {
                 break;
 
             case 'response.output_item.added':
+            case 'response.output_item.done':
                 this.debugLog('[AzureWebSocket] Response output item added');
+                this.maybeHandleMCPApprovalRequest(message.item);
                 break;
 
             case 'response.content_part.added':
@@ -1126,6 +1530,7 @@ class AzureRealtimeWebSocketService extends LLMService {
 
             case 'response.audio.delta':
                 if (message.delta && this.callbacks.onAudio) {
+                    this.markTurn('firstAudioDelta');
                     this.callbacks.onAudio(message.delta);
                 }
                 break;
@@ -1163,6 +1568,10 @@ class AzureRealtimeWebSocketService extends LLMService {
             case 'input_audio_buffer.speech_started':
                 process.stdout.write('.');
                 this.speechActive = true;
+                this.resetTurnMarks();
+                this.mcpCallsThisTurn = 0;
+                this.handledApprovalIds.clear();
+                this.pendingMCPResume = false;
                 this.debugLog('[AzureWebSocket] Speech started (server VAD)');
                 if (this.callbacks.onStatus) {
                     this.callbacks.onStatus('Listening...');
@@ -1171,6 +1580,7 @@ class AzureRealtimeWebSocketService extends LLMService {
 
             case 'input_audio_buffer.speech_stopped':
                 this.speechActive = false;
+                this.markTurn('speechStopped');
                 this.debugLog('[AzureWebSocket] Speech stopped (server VAD) - server will auto-commit');
                 // With server VAD enabled, the server automatically commits the buffer.
                 // DO NOT manually call commitAudioBuffer() here - it causes buffer size errors.
@@ -1213,6 +1623,7 @@ class AzureRealtimeWebSocketService extends LLMService {
                 break;
 
             case 'conversation.item.input_audio_transcription.completed':
+                this.markTurn('transcriptionDone');
                 if (message.transcript) {
                     const transcriptText = typeof message.transcript === 'string'
                         ? message.transcript
@@ -1223,6 +1634,7 @@ class AzureRealtimeWebSocketService extends LLMService {
                         this.callbacks.onTranscription(cleanedTranscript);
                     }
                     if (cleanedTranscript) {
+                        this.lastUserTranscript = cleanedTranscript;
                         this.sessionContext.finalizeUserTurn(cleanedTranscript);
                     }
                     if (cleanedTranscript && this.sessionContext.isQuestion(cleanedTranscript)) {
@@ -1233,6 +1645,19 @@ class AzureRealtimeWebSocketService extends LLMService {
                 break;
 
             case 'response.done':
+                if (this.pendingMCPResume) {
+                    this.pendingMCPResume = false;
+                    console.log('[AzureWebSocket] Resuming turn to run the approved MCP lookup');
+                    this.send({ type: 'response.create' });
+                    break;
+                }
+                if (message.response?.status === 'failed') {
+                    this.markTurn('responseDone');
+                    this.logTurnLatency();
+                    if (this.handleFailedResponse(message.response)) {
+                        break;
+                    }
+                }
                 console.log('[AzureWebSocket] Response completed');
                 // Fallback: extract text from response.done output items if streaming events didn't populate textBuffer
                 if (!this.textBuffer && message.response?.output) {
@@ -1272,6 +1697,8 @@ class AzureRealtimeWebSocketService extends LLMService {
                 this.consecutiveSilentDrops = 0;
                 this.bytesSinceLastCommit = 0;
                 this.logMetrics('response.done');
+                this.markTurn('responseDone');
+                this.logTurnLatency();
                 break;
 
             case 'response.function_call_arguments.delta':
@@ -1366,13 +1793,24 @@ class AzureRealtimeWebSocketService extends LLMService {
     }
 
     /**
+     * Every MCP server used to share WebIQ's 2s budget. Microsoft Learn is documented at 3-60s,
+     * so that budget turned every Learn lookup into a timeout and an ungrounded answer.
+     */
+    getMCPToolTimeout(toolName) {
+        const serverId = this.mcpRegistry.resolveTool(toolName)?.serverId;
+        const configured = this.azureRealtimeSettings?.mcp?.[serverId]?.timeoutMs;
+        return Number.isFinite(configured) ? configured : DEFAULT_MCP_TOOL_TIMEOUT_MS;
+    }
+
+    /**
      * Handle app-side MCP registry tool call
      */
     async handleRegistryToolCall(callId, toolName, args) {
         try {
             console.log(`[AzureWebSocket] Calling MCP registry tool: ${toolName}`, args);
 
-            const timeoutMs = this.azureRealtimeSettings?.mcp?.webiq?.timeoutMs || 2000;
+            const timeoutMs = this.getMCPToolTimeout(toolName);
+            const startedAt = Date.now();
             const result = await Promise.race([
                 this.mcpRegistry.callTool(toolName, args),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('MCP tool timeout')), timeoutMs))
@@ -1383,6 +1821,7 @@ class AzureRealtimeWebSocketService extends LLMService {
                 }
                 throw error;
             });
+            console.log(`[AzureWebSocket] MCP tool ${toolName} took ${Date.now() - startedAt}ms (budget ${timeoutMs}ms)`);
 
             if (!result.success) {
                 throw new Error(result.error || 'MCP tool call failed');
@@ -1621,6 +2060,7 @@ class AzureRealtimeWebSocketService extends LLMService {
         this.pendingChunkAccumulator = [];
         this.pendingChunkBytes = 0;
         this.lastChunkFlushTs = Date.now();
+        this.lastAudioFlushTs = this.lastChunkFlushTs;
         this.pendingAudioForCommit = true;
         this.logMetrics(context);
         return true;

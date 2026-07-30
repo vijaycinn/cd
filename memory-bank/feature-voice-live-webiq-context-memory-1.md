@@ -38,7 +38,7 @@ This plan defines a single forward implementation path to deliver fast, high-fid
 | `max_response_output_tokens` | Integer 1-4096 or `"inf"`. Default 200 for talking points. | API Reference §Components |
 | `temperature` | 0.6-1.2 range. Default 0.6 for fastest/most deterministic. | API Reference §Components |
 | Audio append event | `{ type: "input_audio_buffer.append", audio: "<base64>" }` | API Reference §input_audio_buffer.append |
-| Turn detection | `{ type: "azure_semantic_vad_multilingual", remove_filler_words: true }` | How-To §Turn Detection Parameters |
+| Turn detection | `{ type: "azure_semantic_vad", languages: ["en"], remove_filler_words: true }` (English-only; use `azure_semantic_vad_multilingual` only if non-English input is in scope) | How-To §Turn Detection Parameters |
 | Voice (non-realtime model) | `{ name: "en-US-Ava:DragonHDLatestNeural", type: "azure-standard", temperature: 0.8 }` | How-To §Azure HD voices |
 | Transcription (non-realtime) | `{ model: "mai-transcribe" }` (NO version suffix) | How-To §MAI Transcribe |
 | Noise suppression | `{ type: "azure_deep_noise_suppression" }` | How-To §Noise suppression |

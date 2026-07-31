@@ -1,9 +1,46 @@
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
+// Packager copies the whole project directory into app.asar. Without this filter the build
+// ships .env (real secrets) and the previous build under installer/, which compounds each run.
+const EXCLUDED_PATHS = [
+    '.env',
+    '.git',
+    '.github',
+    '.vscode',
+    '.clinerules',
+    'out',
+    'installer',
+    'docs',
+    'plan',
+    'tasks',
+    'memory-bank',
+    'scripts',
+    'src/__tests__',
+    'src/assets/old',
+    'vitest.config.js',
+    'SoundBoard-Setup.exe',
+    'command-output.txt',
+    'check-azure-config.js',
+    'check-localstorage.js',
+    'test-localstorage.js',
+];
+
+function isExcludedFromPackage(filePath) {
+    const rel = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+    if (!rel) {
+        return false;
+    }
+    if (rel.endsWith('.test.js')) {
+        return true;
+    }
+    return EXCLUDED_PATHS.some(excluded => rel === excluded || rel.startsWith(`${excluded}/`));
+}
+
 module.exports = {
     packagerConfig: {
         asar: true,
+        ignore: isExcludedFromPackage,
         extraResource: ['./src/assets/SystemAudioDump'],
     name: 'SoundBoard',
         icon: 'src/assets/logo',

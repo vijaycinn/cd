@@ -3,15 +3,16 @@
   SOUND BOARD BUILD COMPLETE!
 ==============================================
 
-Build Date: March 22, 2026
+Build Date: July 31, 2026
 Version:    0.4.0
 Platform:   Windows x64
+Scope:      Private use - local machine and machines you own
 
 Location: C:\workspace\source\cd-oai\cd\installer\
 
 Contents:
 ---------
-1. SoundBoard-Portable/     (~890 MB)
+1. SoundBoard-Portable/     (~314 MB)
    - Truly portable - just run SoundBoard.exe
    - No installation needed
    - Includes README.txt
@@ -26,15 +27,27 @@ PORTABLE VERSION USAGE:
 -----------------------
 1. Navigate to: installer\SoundBoard-Portable\
 2. Double-click: SoundBoard.exe
-3. Configure your AI settings
+3. Enter your API keys in the Settings pane
 4. Start using!
+
+No secrets are baked into the build. Keys are entered at runtime and
+stored in the local app settings.
 
 SOURCE BUILD:
 -------------
 Built with: electron-forge package
 Output dir: out\SoundBoard-win32-x64\
-Asar:        resources\app.asar (~667 MB, includes all source)
+Asar:        resources\app.asar (~60 MB)
 Native util: resources\SystemAudioDump
+
+PACKAGING NOTE:
+---------------
+forge.config.js now sets packagerConfig.ignore. Without it Packager copies
+the whole project directory into app.asar, which previously bundled .env
+(real secrets), the prior installer/ build, and a stray 104 MB
+SoundBoard-Setup.exe. That is why the earlier build was 890 MB and a
+rebuild reached 1413 MB. Keep the ignore list current when adding new
+top-level folders.
 
 ==============================================
 

@@ -1,0 +1,6 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "npx vitest": true
+    },
+    "terminal.integrated.defaultProfile.windows": "PowerShell"
+}

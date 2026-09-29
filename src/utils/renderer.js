@@ -21,6 +21,9 @@ let screenshotInterval = null;
 let audioContext = null;
 let audioProcessor = null;
 let micAudioProcessor = null;
+let micAudioContext = null;
+let micSourceNode = null;
+let audioSourceNode = null;
 let audioBuffer = [];
 const SAMPLE_RATE = 24000;
 const AUDIO_CHUNK_DURATION = 0.1; // seconds
@@ -664,9 +667,12 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
 
 function setupLinuxMicProcessing(micStream) {
     // Setup microphone audio processing for Linux
-    const micAudioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-    const micSource = micAudioContext.createMediaStreamSource(micStream);
+    micAudioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+    micSourceNode = micAudioContext.createMediaStreamSource(micStream);
     const micProcessor = micAudioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+    window.micAudioContext = micAudioContext;
+    window.micSource = micSourceNode;
+    window.micAudioProcessor = micProcessor;
 
     let audioBuffer = [];
     const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
@@ -688,7 +694,7 @@ function setupLinuxMicProcessing(micStream) {
         }
     };
 
-    micSource.connect(micProcessor);
+    micSourceNode.connect(micProcessor);
     micProcessor.connect(micAudioContext.destination);
 
     // Store processor reference for cleanup
@@ -698,8 +704,11 @@ function setupLinuxMicProcessing(micStream) {
 function setupLinuxSystemAudioProcessing() {
     // Setup system audio processing for Linux (from getDisplayMedia)
     audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-    const source = audioContext.createMediaStreamSource(mediaStream);
+    audioSourceNode = audioContext.createMediaStreamSource(mediaStream);
     audioProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+    window.audioContext = audioContext;
+    window.audioSource = audioSourceNode;
+    window.audioProcessor = audioProcessor;
 
     let audioBuffer = [];
     const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
@@ -721,15 +730,18 @@ function setupLinuxSystemAudioProcessing() {
         }
     };
 
-    source.connect(audioProcessor);
+    audioSourceNode.connect(audioProcessor);
     audioProcessor.connect(audioContext.destination);
 }
 
 function setupWindowsLoopbackProcessing() {
     // Setup audio processing for Windows loopback audio only
     audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-    const source = audioContext.createMediaStreamSource(mediaStream);
+    audioSourceNode = audioContext.createMediaStreamSource(mediaStream);
     audioProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+    window.audioContext = audioContext;
+    window.audioSource = audioSourceNode;
+    window.audioProcessor = audioProcessor;
 
     let audioBuffer = [];
     const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
@@ -751,7 +763,7 @@ function setupWindowsLoopbackProcessing() {
         }
     };
 
-    source.connect(audioProcessor);
+    audioSourceNode.connect(audioProcessor);
     audioProcessor.connect(audioContext.destination);
 }
 
@@ -907,10 +919,29 @@ function stopCapture() {
         micAudioProcessor = null;
     }
 
-    if (audioContext) {
-        audioContext.close();
-        audioContext = null;
+    if (micSourceNode) {
+        micSourceNode.disconnect();
+        micSourceNode = null;
     }
+
+    if (audioSourceNode) {
+        audioSourceNode.disconnect();
+        audioSourceNode = null;
+    }
+
+    if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close().catch(err => {
+            console.error('Error closing system audio context:', err);
+        });
+    }
+    audioContext = null;
+
+    if (micAudioContext && micAudioContext.state !== 'closed') {
+        micAudioContext.close().catch(err => {
+            console.error('Error closing microphone audio context:', err);
+        });
+    }
+    micAudioContext = null;
 
     if (mediaStream) {
         mediaStream.getTracks().forEach(track => track.stop());
@@ -932,6 +963,13 @@ function stopCapture() {
     }
     offscreenCanvas = null;
     offscreenContext = null;
+
+    window.micSource = null;
+    window.micAudioContext = null;
+    window.micAudioProcessor = null;
+    window.audioSource = null;
+    window.audioContext = null;
+    window.audioProcessor = null;
 }
 
 // Send text message to Gemini

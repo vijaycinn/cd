@@ -3,7 +3,7 @@
   SOUND BOARD BUILD COMPLETE!
 ==============================================
 
-Build Date: July 31, 2026
+Build Date: September 29, 2026
 Version:    0.4.0
 Platform:   Windows x64
 Scope:      Private use - local machine and machines you own
@@ -16,7 +16,7 @@ Contents:
    - Truly portable - just run SoundBoard.exe
    - No installation needed
    - Includes README.txt
-   - Built from latest source (updated codebase)
+   - Built from latest source (with Azure Voice Live VAD fix, GC pinning, session memory)
 
 2. README.md
    - Complete guide for the portable version

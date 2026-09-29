@@ -161,6 +161,7 @@ class AzureRealtimeWebSocketService extends LLMService {
         this.debugEnabled = !!this.azureRealtimeSettings.debug;
         this.minAudioChunkBytes = streamingSettings.minChunkBytes;
         this.speechActive = false; // Server VAD speech flag
+        this.trailingSilenceBytes = 0;
         this.audioPaused = false; // Pause state flag
         this.pauseRequested = false; // Pause request pending
         this.resumeRequested = false; // Resume request pending
@@ -195,6 +196,17 @@ class AzureRealtimeWebSocketService extends LLMService {
         this.commitPaddingEnabled = commitSettings.padSilence;
         this.commitTailSilenceMs = commitSettings.tailSilenceMs ?? 0;
         this.commitTailSilenceBytes = Math.max(0, Math.round((this.expectedSampleRate / 1000) * this.commitTailSilenceMs) * 2);
+        const activeTurnDetection = this.isVoiceLiveProvider()
+            ? this.getVoiceLiveTurnDetectionConfig()
+            : this.getTurnDetectionConfig();
+        const configuredSilenceMs = Number.isFinite(activeTurnDetection?.silence_duration_ms)
+            ? activeTurnDetection.silence_duration_ms
+            : null;
+        const trailingSilenceMs = Math.max(
+            1500,
+            Number.isFinite(configuredSilenceMs) ? Math.round(configuredSilenceMs * 2.5) : 1500
+        );
+        this.maxTrailingSilenceBytes = Math.round((this.expectedSampleRate / 1000) * trailingSilenceMs * 2);
         this.bytesSinceLastCommit = 0;
 
         this.pendingChunkAccumulator = [];
@@ -260,6 +272,13 @@ class AzureRealtimeWebSocketService extends LLMService {
 
     isVoiceLiveProvider() {
         return this.voiceProvider === 'voice-live';
+    }
+
+    isServerVadActive() {
+        const turnDetection = this.isVoiceLiveProvider()
+            ? this.getVoiceLiveTurnDetectionConfig()
+            : this.getTurnDetectionConfig();
+        return !!turnDetection && turnDetection.type !== 'none';
     }
 
     getVoiceLiveTurnDetectionConfig() {
@@ -491,7 +510,7 @@ class AzureRealtimeWebSocketService extends LLMService {
             if (voiceLive.noiseSuppression !== false) {
                 session.input_audio_noise_reduction = { type: 'azure_deep_noise_suppression' };
             }
-            if (voiceLive.echoCancellation !== false) {
+            if (voiceLive.echoCancellation === true) {
                 session.input_audio_echo_cancellation = { type: 'server_echo_cancellation' };
             }
 
@@ -1027,6 +1046,7 @@ class AzureRealtimeWebSocketService extends LLMService {
                 this.clearFlushTimer();
                 this.lastChunkFlushTs = Date.now();
                 this.speechActive = false;
+                this.trailingSilenceBytes = 0;
                 if (this._initTimeout) {
                     clearTimeout(this._initTimeout);
                     this._initTimeout = null;
@@ -1580,6 +1600,7 @@ class AzureRealtimeWebSocketService extends LLMService {
 
             case 'input_audio_buffer.speech_stopped':
                 this.speechActive = false;
+                this.trailingSilenceBytes = 0;
                 this.markTurn('speechStopped');
                 this.debugLog('[AzureWebSocket] Speech stopped (server VAD) - server will auto-commit');
                 // With server VAD enabled, the server automatically commits the buffer.
@@ -1600,13 +1621,18 @@ class AzureRealtimeWebSocketService extends LLMService {
                 // Server has committed the buffer - audio is now part of conversation
                 this.pendingAudioForCommit = false;
                 this.bytesSinceLastCommit = 0;
+                this.speechActive = false;
+                this.trailingSilenceBytes = 0;
                 // conversation.item.created event will follow with the user message item
                 break;
 
             case 'input_audio_buffer.commit_failed':
+            case 'input_audio_buffer_commit_failed':
                 console.warn('[AzureWebSocket] Server reported commit failure:', message.error || message.reason);
                 this.pendingAudioForCommit = false;
                 this.bytesSinceLastCommit = 0;
+                this.speechActive = false;
+                this.trailingSilenceBytes = 0;
                 break;
 
             case 'input_audio_buffer.commit_no_audio':
@@ -1976,7 +2002,11 @@ class AzureRealtimeWebSocketService extends LLMService {
             isSilent = rms < this.silenceRmsThreshold;
         }
 
-        if (isSilent) {
+        if (!isSilent) {
+            this.trailingSilenceBytes = 0;
+        }
+
+        if (isSilent && !this.speechActive) {
             this.metrics.audioChunksSkipped += 1;
             const now = Date.now();
             if (now - this.lastSilenceLogTs >= this.silenceSkipLogThrottleMs) {
@@ -1986,11 +2016,22 @@ class AzureRealtimeWebSocketService extends LLMService {
             process.stdout.write('-');
             if (this.pendingChunkAccumulator.length > 0) {
                 const flushed = this.flushAudioAccumulator({ force: true, context: 'silence_gap' });
-                if (flushed !== false) {
+                if (flushed !== false && !this.isServerVadActive()) {
                     this.commitAudioBuffer('silence_gap');
                 }
             }
             return true;
+        }
+
+        if (isSilent && this.speechActive) {
+            this.trailingSilenceBytes += audioData.length;
+            if (this.trailingSilenceBytes > this.maxTrailingSilenceBytes) {
+                console.warn('[AzureWebSocket] speech_stopped not received after %d bytes of silence - releasing speech flag', this.trailingSilenceBytes);
+                this.speechActive = false;
+                this.trailingSilenceBytes = 0;
+                return true;
+            }
+            this.debugLog('[AzureWebSocket] Preserving silent chunk while speech is active for server VAD stop detection');
         }
 
         this.pendingChunkAccumulator.push(audioData);
@@ -2140,16 +2181,21 @@ class AzureRealtimeWebSocketService extends LLMService {
         console.log('[AzureWebSocket] Pausing audio transmission...');
         this.audioPaused = true;
         this.pauseRequested = true;
+        this.speechActive = false;
+        this.trailingSilenceBytes = 0;
 
         // Flush any pending audio chunks
-        const flushed = this.flushAudioAccumulator();
+        const flushed = this.flushAudioAccumulator({ force: true, context: 'pause' });
         console.log('[AzureWebSocket] Flushed %d accumulated chunks on pause', flushed);
 
-        // Force commit if configured and VAD is enabled
-        const settings = this.settings?.pauseButton || {};
-        if (settings.forceCommitOnPause && this.serverVadEnabled && this.pendingAudioForCommit) {
-            console.log('[AzureWebSocket] Forcing commit on pause (VAD enabled)');
-            this.commitAudioBuffer('pause_button', { forceTailPadding: true });
+        // Force commit only for client-managed turns (server VAD disabled)
+        const settings = this.azureRealtimeSettings?.pauseButton || {};
+        if (settings.forceCommitOnPause && !this.isServerVadActive() && this.pendingAudioForCommit) {
+            console.log('[AzureWebSocket] Forcing commit on pause (client-managed turns)');
+            const committed = this.commitAudioBuffer('pause_button', { forceTailPadding: true });
+            if (committed) {
+                this.send({ type: 'response.create' });
+            }
         }
 
         // Update status via callback
@@ -2177,7 +2223,7 @@ class AzureRealtimeWebSocketService extends LLMService {
 
         // Clear audio accumulators to start fresh
         this.pendingChunkAccumulator.length = 0;
-        this.bytesInPendingChunks = 0;
+        this.pendingChunkBytes = 0;
 
         // Update status via callback
         if (this.onStatusUpdate) {
@@ -2329,7 +2375,7 @@ class AzureRealtimeWebSocketService extends LLMService {
             const flushed = this.flushAudioAccumulator({ force: true, context: 'idle_timer' });
             if (flushed === false && this.pendingChunkAccumulator.length > 0) {
                 this.scheduleFlush();
-            } else if (flushed !== false && !this.speechActive) {
+            } else if (flushed !== false && !this.speechActive && !this.isServerVadActive()) {
                 this.commitAudioBuffer('idle_timer');
             }
         }, this.chunkFlushIntervalMs);
@@ -2396,6 +2442,7 @@ class AzureRealtimeWebSocketService extends LLMService {
             this.pendingAudioForCommit = false;
             this.lastChunkFlushTs = Date.now();
             this.speechActive = false;
+            this.trailingSilenceBytes = 0;
             this.lastPublishedLength = 0;
             this.lastLoggedLength = 0;
             this.textBuffer = '';

@@ -97,6 +97,8 @@ out/
 # Portable build output
 installer/SoundBoard-Portable/
 
-# Installer executables
+# Installer executables and archives
 *.exe
 installer/*.exe
+*.zip
+installer/*.zip

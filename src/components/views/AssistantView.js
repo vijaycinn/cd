@@ -289,6 +289,43 @@ export class AssistantView extends LitElement {
         .save-button svg {
             stroke: currentColor !important;
         }
+
+        /* Deliberately not an icon button: it sat between three identical icons and read as noise. */
+        .expand-button {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            height: 36px;
+            padding: 0 12px;
+            border: 1px solid var(--button-border);
+            border-radius: 18px;
+            background: transparent;
+            color: var(--start-button-background);
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .expand-button svg {
+            stroke: currentColor !important;
+            flex-shrink: 0;
+        }
+
+        .expand-button:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .expand-button:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+
+        .expand-button kbd {
+            font-family: inherit;
+            font-size: 10px;
+            opacity: 0.6;
+        }
     `;
 
     static properties = {
@@ -344,6 +381,8 @@ export class AssistantView extends LitElement {
                     sanitize: false, // We trust the AI responses
                 });
                 let rendered = window.marked.parse(content);
+                // Make all links open in external browser (not in Electron window)
+                rendered = this.makeLinksExternal(rendered);
                 rendered = this.wrapWordsInSpans(rendered);
                 return rendered;
             } catch (error) {
@@ -353,6 +392,63 @@ export class AssistantView extends LitElement {
         }
         console.log('Marked not available, using plain text');
         return content; // Fallback if marked is not available
+    }
+
+    makeLinksExternal(html) {
+        // Parse HTML and add click handlers to open links in external browser
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const links = doc.querySelectorAll('a[href]');
+        
+        links.forEach(link => {
+            const href = link.getAttribute('href');
+            if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+                // Add data attribute for external link handling
+                link.setAttribute('data-external-link', href);
+                link.setAttribute('title', link.getAttribute('title') || 'Open in browser');
+                // Remove default href to prevent Electron from navigating
+                link.style.cursor = 'pointer';
+            }
+        });
+        
+        return doc.body.innerHTML;
+    }
+
+    makeLinksExternal(html) {
+        // Parse HTML and add click handlers to open links in external browser
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const links = doc.querySelectorAll('a[href]');
+        
+        links.forEach(link => {
+            const href = link.getAttribute('href');
+            if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+                // Add data attribute for external link handling
+                link.setAttribute('data-external-link', href);
+                link.setAttribute('title', link.getAttribute('title') || 'Open in browser');
+                // Keep href for accessibility but prevent default navigation
+                link.style.cursor = 'pointer';
+            }
+        });
+        
+        return doc.body.innerHTML;
+    }
+
+    handleLinkClick(e) {
+        // Intercept clicks on external links and open in system browser
+        const target = e.target.closest('a[data-external-link]');
+        if (target) {
+            e.preventDefault();
+            const url = target.getAttribute('data-external-link');
+            if (url && window.require) {
+                const { ipcRenderer } = window.require('electron');
+                ipcRenderer.invoke('open-external', url).then(result => {
+                    if (!result.success) {
+                        console.error('Failed to open external link:', result.error);
+                    }
+                });
+            }
+        }
     }
 
     wrapWordsInSpans(html) {
@@ -385,6 +481,20 @@ export class AssistantView extends LitElement {
 
     getResponseCounter() {
         return this.responses.length > 0 ? `${this.currentResponseIndex + 1}/${this.responses.length}` : '';
+    }
+
+    handleScreenshotClick() {
+        console.log('[AssistantView] Screenshot button clicked');
+        // Call the global screenshot function
+        if (window.captureManualScreenshot) {
+            window.captureManualScreenshot();
+        } else if (window.cheddar && window.cheddar.handleShortcut) {
+            // Fallback to handleShortcut
+            window.cheddar.handleShortcut('ctrl+enter');
+        } else {
+            console.error('[AssistantView] Screenshot function not available');
+            alert('Screenshot function not available. Please ensure a capture session is active.');
+        }
     }
 
     navigateToPreviousResponse() {
@@ -442,6 +552,33 @@ export class AssistantView extends LitElement {
         // Load and apply font size
         this.loadFontSize();
 
+        // Add right-click screenshot handler
+        this.handleContextMenu = (e) => {
+            e.preventDefault(); // Prevent default context menu
+            console.log('[AssistantView] Right-click detected, capturing screenshot...');
+            
+            // Call the global screenshot function
+            if (window.captureManualScreenshot) {
+                window.captureManualScreenshot();
+            } else if (window.cheddar && window.cheddar.handleShortcut) {
+                // Fallback to handleShortcut
+                window.cheddar.handleShortcut('ctrl+enter');
+            } else {
+                console.error('[AssistantView] Screenshot function not available');
+            }
+        };
+        
+        // Add event listener to the entire view
+        this.addEventListener('contextmenu', this.handleContextMenu);
+
+        this.handleExpandShortcut = e => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+                e.preventDefault();
+                this.handleExpandResponse();
+            }
+        };
+        window.addEventListener('keydown', this.handleExpandShortcut);
+
         // Set up IPC listeners for keyboard shortcuts
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
@@ -475,6 +612,15 @@ export class AssistantView extends LitElement {
 
     disconnectedCallback() {
         super.disconnectedCallback();
+
+        // Remove right-click handler
+        if (this.handleContextMenu) {
+            this.removeEventListener('contextmenu', this.handleContextMenu);
+        }
+
+        if (this.handleExpandShortcut) {
+            window.removeEventListener('keydown', this.handleExpandShortcut);
+        }
 
         // Clean up IPC listeners
         if (window.require) {
@@ -526,12 +672,37 @@ export class AssistantView extends LitElement {
         }
     }
 
+    // The first answer is optimised for speed; expanding re-asks with an explicit demand for sources,
+    // which is what makes the model spend a lookup instead of answering from memory.
+    async handleExpandResponse() {
+        const current = this.getCurrentResponse();
+        if (!current) return;
+
+        const followUp =
+            'Expand on your previous answer. Verify it against Microsoft Learn first, then the web if Learn ' +
+            'has nothing. Give more depth, name the exact products and features, and cite the source for each ' +
+            'claim. If you cannot verify something, say so explicitly rather than asserting it.';
+
+        const llmService = localStorage.getItem('llmService') || 'gemini';
+        if (llmService === 'azure') {
+            const result = await window.cheddar.sendAzureTextMessage(followUp);
+            if (!result.success) {
+                console.error('[AssistantView] Expand request failed:', result.error);
+                return;
+            }
+        } else {
+            await this.onSendText(followUp);
+        }
+        this._awaitingNewResponse = true;
+    }
+
     handleTextKeydown(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             this.handleSendText();
         }
     }
+
 
     scrollToBottom() {
         setTimeout(() => {
@@ -618,7 +789,7 @@ export class AssistantView extends LitElement {
         const isSaved = this.isResponseSaved();
 
         return html`
-            <div class="response-container" id="responseContainer"></div>
+            <div class="response-container" id="responseContainer" @click=${this.handleLinkClick}></div>
 
             <div class="text-input-container">
                 <button class="nav-button" @click=${this.navigateToPreviousResponse} ?disabled=${this.currentResponseIndex <= 0}>
@@ -636,6 +807,18 @@ export class AssistantView extends LitElement {
                 </button>
 
                 ${this.responses.length > 0 ? html` <span class="response-counter">${responseCounter}</span> ` : ''}
+
+                <button
+                    class="expand-button"
+                    @click=${this.handleExpandResponse}
+                    ?disabled=${!currentResponse}
+                    title="Re-ask with sources (Microsoft Learn first) — Ctrl+E"
+                >
+                    <svg width="16px" height="16px" viewBox="0 0 24 24" fill="none" stroke-width="1.7" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 3H3v6M15 21h6v-6M3 3l7 7M21 21l-7-7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                    Go deeper <kbd>Ctrl+E</kbd>
+                </button>
 
                 <button
                     class="save-button ${isSaved ? 'saved' : ''}"
@@ -659,6 +842,22 @@ export class AssistantView extends LitElement {
                         ></path>
                         <path d="M15 22V13H9V22" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
                         <path d="M9 3V8H15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                </button>
+
+                <button class="nav-button" @click=${this.handleScreenshotClick} title="Take Screenshot (Ctrl+Enter or Right-click)">
+                    <?xml version="1.0" encoding="UTF-8"?><svg
+                        width="24px"
+                        height="24px"
+                        stroke-width="1.7"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        color="#ffffff"
+                    >
+                        <rect x="3" y="3" width="18" height="18" rx="2" stroke="#ffffff" stroke-width="1.7"></rect>
+                        <circle cx="12" cy="12" r="4" stroke="#ffffff" stroke-width="1.7"></circle>
+                        <path d="M3 16L8 11L13 16" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
                     </svg>
                 </button>
 

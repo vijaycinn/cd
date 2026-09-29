@@ -22,7 +22,6 @@ class SettingsManager {
         }
         return {
             llmService: 'gemini',
-            azureApiKey: '',
             azureEndpoint: '',
             azureDeployment: '',
             geminiApiKey: '',
@@ -53,7 +52,6 @@ class SettingsManager {
     clear() {
         this.settings = {
             llmService: 'gemini',
-            azureApiKey: '',
             azureEndpoint: '',
             azureDeployment: '',
             geminiApiKey: '',

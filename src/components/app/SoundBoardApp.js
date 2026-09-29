@@ -116,6 +116,8 @@ export class SoundBoardApp extends LitElement {
         _isClickThrough: { state: true },
         _awaitingNewResponse: { state: true },
         shouldAnimateResponse: { type: Boolean },
+        // Task 0.4.2: Pause button state
+        audioPaused: { type: Boolean },
     };
 
     constructor() {
@@ -131,6 +133,7 @@ export class SoundBoardApp extends LitElement {
         this.selectedImageQuality = localStorage.getItem('selectedImageQuality') || 'medium';
         this.layoutMode = localStorage.getItem('layoutMode') || 'normal';
         this.advancedMode = localStorage.getItem('advancedMode') !== 'false'; // Enable by default unless explicitly disabled
+        this.llmService = localStorage.getItem('llmService') || 'gemini'; // Initialize llmService
         this.responses = [];
         this.currentResponseIndex = -1;
         this._viewInstances = new Map();
@@ -138,6 +141,8 @@ export class SoundBoardApp extends LitElement {
         this._awaitingNewResponse = false;
         this._currentResponseIsComplete = true;
         this.shouldAnimateResponse = false;
+        // Task 0.4.2: Initialize pause state
+        this.audioPaused = false;
 
         // Apply layout mode to document root
         this.updateLayoutMode();
@@ -145,6 +150,28 @@ export class SoundBoardApp extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
+
+        // Add global right-click screenshot handler
+        this.handleContextMenu = (e) => {
+            const currentView = this.currentView;
+            
+            // Only capture screenshot if NOT on main view (same logic as Ctrl+Enter)
+            if (currentView !== 'main' && currentView !== 'onboarding') {
+                e.preventDefault(); // Prevent default context menu
+                console.log('[SoundBoardApp] Right-click screenshot triggered from view:', currentView);
+                
+                // Call the global screenshot function
+                if (window.captureManualScreenshot) {
+                    window.captureManualScreenshot();
+                } else {
+                    console.error('[SoundBoardApp] Screenshot function not available');
+                }
+            }
+            // If on main view, allow default context menu behavior
+        };
+        
+        // Add event listener to the entire app
+        this.addEventListener('contextmenu', this.handleContextMenu);
 
         // Set up IPC listeners if needed
         if (window.require) {
@@ -163,6 +190,12 @@ export class SoundBoardApp extends LitElement {
 
     disconnectedCallback() {
         super.disconnectedCallback();
+        
+        // Remove global right-click handler
+        if (this.handleContextMenu) {
+            this.removeEventListener('contextmenu', this.handleContextMenu);
+        }
+        
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
             ipcRenderer.removeAllListeners('update-response');
@@ -270,27 +303,68 @@ export class SoundBoardApp extends LitElement {
         }
     }
 
+    /**
+     * Task 0.4.2: Handle pause/resume button click
+     */
+    async handlePauseClick() {
+        if (!window.require) return;
+
+        const { ipcRenderer } = window.require('electron');
+        const llmService = localStorage.getItem('llmService') || 'gemini';
+
+        // Only works with Azure
+        if (llmService !== 'azure') {
+            console.log('[SoundBoardApp] Pause only available for Azure provider');
+            return;
+        }
+
+        try {
+            if (this.audioPaused) {
+                // Resume audio
+                console.log('[SoundBoardApp] Resuming audio...');
+                const result = await ipcRenderer.invoke('azure-resume-audio');
+                if (result.success) {
+                    this.audioPaused = false;
+                    console.log('[SoundBoardApp] Audio resumed');
+                } else {
+                    console.error('[SoundBoardApp] Failed to resume:', result.error);
+                }
+            } else {
+                // Pause audio
+                console.log('[SoundBoardApp] Pausing audio...');
+                const result = await ipcRenderer.invoke('azure-pause-audio');
+                if (result.success) {
+                    this.audioPaused = true;
+                    console.log('[SoundBoardApp] Audio paused');
+                } else {
+                    console.error('[SoundBoardApp] Failed to pause:', result.error);
+                }
+            }
+        } catch (error) {
+            console.error('[SoundBoardApp] Error toggling pause:', error);
+        }
+    }
+
     // Main view event handlers
     async handleStart() {
         console.log('[SoundBoardApp] handleStart called');
         const llmService = localStorage.getItem('llmService') || 'gemini';
+        this.llmService = llmService; // Update component property
         console.log(`[SoundBoardApp] llmService from localStorage: ${llmService}`);
-        let apiKey;
+        let geminiApiKey = '';
 
         // PR84 PATTERN: Service-based key selection
         if (llmService === 'gemini') {
             console.log('[SoundBoardApp] Using Gemini service');
-            apiKey = localStorage.getItem('geminiApiKey')?.trim();
+            geminiApiKey = localStorage.getItem('geminiApiKey')?.trim() || '';
         } else if (llmService === 'azure') {
             console.log('[SoundBoardApp] Using Azure service');
-            apiKey = localStorage.getItem('azureApiKey')?.trim();
-            // ADDED: Also validate endpoint for Azure
             const endpoint = localStorage.getItem('azureEndpoint')?.trim();
+            const deployment = localStorage.getItem('azureDeployment')?.trim();
             const region = (localStorage.getItem('azureRegion') || 'eastus2')?.trim();
-            console.log(`[SoundBoardApp] Azure credentials - apiKey: ${apiKey ? '***' : 'MISSING'}, endpoint: ${endpoint}, region: ${region}`);
-            if (!apiKey || !endpoint || !region) {
-                // Show error for missing Azure credentials
-                console.log('[SoundBoardApp] Missing Azure credentials, triggering error');
+            console.log(`[SoundBoardApp] Azure managed identity configuration - endpoint: ${endpoint}, region: ${region}, deployment: ${deployment}`);
+            if (!endpoint || !region || !deployment) {
+                console.log('[SoundBoardApp] Missing Azure endpoint/region/deployment, triggering error');
                 this.triggerAzureCredentialError();
                 return;
             }
@@ -298,7 +372,7 @@ export class SoundBoardApp extends LitElement {
             console.log(`[SoundBoardApp] Unknown service: ${llmService}`);
         }
 
-        if (!apiKey || apiKey === '') {
+        if (llmService === 'gemini' && !geminiApiKey) {
             console.log('[SoundBoardApp] No API key found, triggering API key error');
             // Trigger the red blink animation on the API key input
             const mainView = this.shadowRoot.querySelector('main-view');
@@ -553,6 +627,9 @@ export class SoundBoardApp extends LitElement {
                         .onCloseClick=${() => this.handleClose()}
                         .onBackClick=${() => this.handleBackClick()}
                         .onHideToggleClick=${() => this.handleHideToggle()}
+                        .onPauseClick=${() => this.handlePauseClick()}
+                        .llmProvider=${this.llmService || 'gemini'}
+                        .audioPaused=${this.audioPaused}
                         ?isClickThrough=${this._isClickThrough}
                     ></app-header>
                     <div class="${mainContentClass}">

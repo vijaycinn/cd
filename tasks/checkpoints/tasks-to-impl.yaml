@@ -1,0 +1,65 @@
+checkpoint:
+  id: tasks-to-impl
+  status: completed
+  created_for_batch: webiq-voice-live-implementation
+traceability:
+  - task_id: phase-1
+    description: Stabilize MCP/WebSocket dependencies.
+    status: completed
+    requirements:
+      - REQ-DEPENDENCY-LINKAGE
+    evidence:
+      - package.json declares @modelcontextprotocol/sdk and ws.
+      - npm.cmd ls @modelcontextprotocol/sdk ws --depth=0 passed.
+  - task_id: phase-2
+    description: Add MCP and WebIQ configuration surface.
+    status: completed
+    requirements:
+      - REQ-WEBIQ-KEY-SECURITY
+    evidence:
+      - src/config/azureRealtimeSettings.js resolves WEBIQ_API_KEY to _resolvedKey.
+      - src/__tests__/azureGrounding.test.js verifies resolved key is not persisted.
+  - task_id: phase-3
+    description: Replace hardcoded Learn client with generic MCP registry.
+    status: completed
+    requirements:
+      - REQ-MCP-REGISTRY
+    evidence:
+      - src/utils/mcpRegistry.js added.
+      - src/__tests__/mcpRegistry.test.js passed.
+  - task_id: phase-4
+    description: Enable WebIQ on current Azure Realtime endpoint through app-side bridge.
+    status: completed
+    requirements:
+      - REQ-REALTIME-WEBIQ-BRIDGE
+      - REQ-GEMINI-UNCHANGED
+    evidence:
+      - src/utils/azureRealtimeWebSocket.js registers WebIQ only when config, UI signal, and key are present.
+      - Microsoft Learn tools continue through native names.
+  - task_id: phase-5
+    description: Add tests with no live network calls.
+    status: completed
+    requirements:
+      - REQ-NO-NETWORK-TESTS
+    evidence:
+      - mcpRegistry tests use injected fake clients/transports.
+      - npm.cmd test passed with 27 tests.
+  - task_id: phase-6-opt-in
+    description: Add optional Voice Live WebSocket provider without WebRTC.
+    status: completed
+    requirements:
+      - REQ-WEBSOCKET-ONLY
+      - REQ-VOICE-LIVE-FIDELITY
+    evidence:
+      - Voice Live URL path uses /voice-live/realtime with api-version=2026-04-10.
+      - Session builder includes native MCP descriptors, semantic VAD, noise suppression, echo cancellation, heartbeat, reconnect, and session renewal hooks.
+dependencies:
+  blocked: []
+  skipped: []
+verification:
+  static_errors: none
+  tests:
+    command: npm.cmd test
+    status: passed
+    test_files: 7
+    tests: 27

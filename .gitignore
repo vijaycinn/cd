@@ -93,3 +93,10 @@ typings/
 out/
 .specstory
 .specstory/
+
+# Portable build output
+installer/SoundBoard-Portable/
+
+# Installer executables
+*.exe
+installer/*.exe

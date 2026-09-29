@@ -251,9 +251,15 @@ function updateGlobalShortcuts(keybinds, mainWindow, sendToRenderer, geminiSessi
                     const shortcutKey = isMac ? 'cmd+enter' : 'ctrl+enter';
 
                     // Use the new handleShortcut function
-                    mainWindow.webContents.executeJavaScript(`
-                        cheddar.handleShortcut('${shortcutKey}');
+                    const result = await mainWindow.webContents.executeJavaScript(`
+                        if (typeof cheddar !== 'undefined' && cheddar.handleShortcut) {
+                            cheddar.handleShortcut('${shortcutKey}');
+                            'success';
+                        } else {
+                            'cheddar not available';
+                        }
                     `);
+                    console.log('[window.js] handleShortcut result:', result);
                 } catch (error) {
                     console.error('Error handling next step shortcut:', error);
                 }

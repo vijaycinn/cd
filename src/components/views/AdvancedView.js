@@ -328,10 +328,13 @@ export class AdvancedView extends LitElement {
         throttleAtPercent: { type: Number },
         contentProtection: { type: Boolean },
         llmService: { type: String },
-        azureApiKey: { type: String },
         azureEndpoint: { type: String },
-    azureRegion: { type: String },
-    azureDeployment: { type: String },
+        azureRegion: { type: String },
+        azureDeployment: { type: String },
+        azureVoiceProvider: { type: String },
+        azureEnableWebIQ: { type: Boolean },
+        azureVisionEnabled: { type: Boolean },
+        azureVisionDeployment: { type: String },
     };
 
     constructor() {
@@ -350,10 +353,13 @@ export class AdvancedView extends LitElement {
 
         // LLM Service defaults
         this.llmService = localStorage.getItem('llmService') || 'gemini';
-    this.azureApiKey = localStorage.getItem('azureApiKey') || '';
-    this.azureEndpoint = localStorage.getItem('azureEndpoint') || '';
-    this.azureRegion = localStorage.getItem('azureRegion') || '';
-    this.azureDeployment = localStorage.getItem('azureDeployment') || '';
+        this.azureEndpoint = localStorage.getItem('azureEndpoint') || '';
+        this.azureRegion = localStorage.getItem('azureRegion') || '';
+        this.azureDeployment = localStorage.getItem('azureDeployment') || '';
+        this.azureVoiceProvider = localStorage.getItem('azureVoiceProvider') || 'azure-realtime';
+        this.azureEnableWebIQ = localStorage.getItem('azureEnableWebIQ') === 'true';
+        this.azureVisionEnabled = localStorage.getItem('azureVisionEnabled') !== 'false';
+        this.azureVisionDeployment = localStorage.getItem('azureVisionDeployment') || 'gpt-4.1';
 
         this.loadRateLimitSettings();
         this.loadContentProtectionSetting();
@@ -502,9 +508,10 @@ export class AdvancedView extends LitElement {
     }
 
     handleInputChange(e) {
-        const { name, value } = e.target;
-        this[name] = value;
-        localStorage.setItem(name, value);
+        const { name, value, type, checked } = e.target;
+        const newValue = type === 'checkbox' ? checked : value;
+        this[name] = newValue;
+        localStorage.setItem(name, newValue);
         this.requestUpdate();
     }
 
@@ -635,10 +642,6 @@ export class AdvancedView extends LitElement {
 
                         ${this.llmService === 'azure' ? html`
                             <div class="form-group">
-                                <label class="form-label">Azure API Key</label>
-                                <input type="password" name="azureApiKey" class="form-control" .value=${this.azureApiKey} @input=${this.handleInputChange}>
-                            </div>
-                            <div class="form-group">
                                 <label class="form-label">Azure Endpoint</label>
                                 <input type="text" name="azureEndpoint" class="form-control" .value=${this.azureEndpoint} @input=${this.handleInputChange} placeholder="https://your-resource.openai.azure.com/">
                             </div>
@@ -647,9 +650,49 @@ export class AdvancedView extends LitElement {
                                 <input type="text" name="azureRegion" class="form-control" .value=${this.azureRegion} @input=${this.handleInputChange} placeholder="eastus2">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Deployment Name</label>
-                                <input type="text" name="azureDeployment" class="form-control" .value=${this.azureDeployment} @input=${this.handleInputChange} placeholder="e.g., gpt-5-mini">
+                                <label class="form-label">Voice Deployment Name</label>
+                                <input type="text" name="azureDeployment" class="form-control" .value=${this.azureDeployment} @input=${this.handleInputChange} placeholder="e.g., gpt-realtime">
+                                <small class="form-hint">Deployment for voice/audio (Realtime API)</small>
                             </div>
+                            <div class="form-group">
+                                <label class="form-label">Voice Transport Provider</label>
+                                <select name="azureVoiceProvider" class="form-control" .value=${this.azureVoiceProvider} @change=${this.handleInputChange}>
+                                    <option value="azure-realtime">Azure Realtime (default)</option>
+                                    <option value="voice-live">Voice Live (WebSocket)</option>
+                                </select>
+                                <div class="form-description">Voice Live uses WebSocket only and enables native MCP server headers, Azure semantic VAD, noise suppression, and echo cancellation.</div>
+                            </div>
+                            <div class="checkbox-group" style="grid-column: 1 / -1;">
+                                <input
+                                    type="checkbox"
+                                    class="checkbox-input"
+                                    id="azure-enable-webiq"
+                                    name="azureEnableWebIQ"
+                                    .checked=${this.azureEnableWebIQ}
+                                    @change=${this.handleInputChange}
+                                />
+                                <label for="azure-enable-webiq" class="checkbox-label">
+                                    Enable WebIQ web grounding
+                                </label>
+                            </div>
+                            <div class="form-description" style="margin-left: 22px; grid-column: 1 / -1;">
+                                Enable signal only. Configure WEBIQ_API_KEY in process environment or azure-realtime-settings.json.
+                            </div>
+                            
+                            <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1); grid-column: 1 / -1;">
+                                <label class="form-label" style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" name="azureVisionEnabled" .checked=${this.azureVisionEnabled} @change=${this.handleInputChange}>
+                                    <span>Enable Screenshot Analysis</span>
+                                </label>
+                            </div>
+                            
+                            ${this.azureVisionEnabled ? html`
+                                <div class="form-group">
+                                    <label class="form-label">Vision Deployment Name</label>
+                                    <input type="text" name="azureVisionDeployment" class="form-control" .value=${this.azureVisionDeployment} @input=${this.handleInputChange} placeholder="gpt-4.1">
+                                    <small class="form-hint">Deployment for vision model (e.g., gpt-4.1, gpt-4o)</small>
+                                </div>
+                            ` : ''}
                         ` : ''}
                     </div>
                 </div>

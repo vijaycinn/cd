@@ -1,0 +1,81 @@
+batch:
+  id: webiq-voice-live-implementation
+  status: completed
+  artifact_path: tasks
+  source_plan: docs/webiq-voicelive-implementation-plan.md
+summary:
+  completed:
+    - Declared @modelcontextprotocol/sdk and ws as direct dependencies and refreshed package-lock linkage.
+    - Added secure Azure MCP settings with WebIQ key resolution from process env or main-process settings only.
+    - Implemented a generic MCP registry with tool namespacing, allowed-tool filtering, and routed tool calls.
+    - Wired Microsoft Learn and WebIQ through the app-side Realtime bridge with richer MCP result formatting.
+    - Added Azure-only UI controls for WebIQ enablement and Voice Live provider selection without renderer key entry.
+    - Added optional Voice Live WebSocket mode with native MCP descriptors, Azure semantic VAD, noise suppression, echo cancellation, heartbeat, reconnect, and session-renewal scaffolding.
+    - Added unit tests for MCP registry behavior, WebIQ key non-persistence, WebIQ gating, and Voice Live URL/native tools.
+requirements:
+  - id: REQ-WEBIQ-KEY-SECURITY
+    status: passed
+    evidence: WebIQ key is resolved to mcp.webiq._resolvedKey and underscore-prefixed fields are stripped before settings persistence.
+  - id: REQ-MCP-REGISTRY
+    status: passed
+    evidence: src/__tests__/mcpRegistry.test.js covers namespacing, resolveTool, allowedTools, and callTool routing.
+  - id: REQ-REALTIME-WEBIQ-BRIDGE
+    status: passed
+    evidence: Azure Realtime mode registers WebIQ with x-apikey headers when enabled and key is present.
+  - id: REQ-GEMINI-UNCHANGED
+    status: passed
+    evidence: Gemini files and audio router Gemini logic were not modified; full test suite passed.
+  - id: REQ-WEBSOCKET-ONLY
+    status: passed
+    evidence: Voice Live provider uses wss://.../voice-live/realtime and no new RTCPeerConnection usage was added.
+files_changed:
+  - path: package.json
+    purpose: Declare direct MCP SDK and ws dependencies.
+  - path: package-lock.json
+    purpose: Refresh direct dependency linkage.
+  - path: .env.example
+    purpose: Document WEBIQ_API_KEY process environment variable.
+  - path: .env
+    purpose: Local ignored placeholder for WEBIQ_API_KEY; no secrets included.
+  - path: src/config/azureRealtimeSettings.js
+    purpose: Add MCP/WebIQ and Voice Live settings plus secure env override handling.
+  - path: src/utils/mcpRegistry.js
+    purpose: Generic remote MCP server registry and tool router.
+  - path: src/utils/microsoftLearnMCP.js
+    purpose: Preserve old Microsoft Learn API surface while delegating through registry.
+  - path: src/utils/azureRealtimeWebSocket.js
+    purpose: Wire registry, WebIQ bridge, Voice Live provider, native MCP tools, and connection resilience.
+  - path: src/components/views/AdvancedView.js
+    purpose: Add Azure-only WebIQ toggle and Voice Live provider selector.
+  - path: src/utils/renderer.js
+    purpose: Pass non-secret Azure runtime flags to main process.
+  - path: src/index.js
+    purpose: Validate and forward Azure runtime flags to WebSocket service.
+  - path: src/__tests__/mcpRegistry.test.js
+    purpose: Unit tests for MCP registry behavior without network I/O.
+  - path: src/__tests__/azureGrounding.test.js
+    purpose: Extended tests for WebIQ key handling, registration gating, and Voice Live native MCP.
+verification:
+  dependency_install:
+    command: npm.cmd install
+    status: passed
+    notes:
+      - npm reported EPERM cleanup warnings for locked node_modules folders.
+      - npm audit reports pre-existing vulnerabilities; no audit fix was run.
+  dependency_resolution:
+    command: npm.cmd ls @modelcontextprotocol/sdk ws --depth=0; node -e "console.log(require.resolve('ws')); console.log(require.resolve('@modelcontextprotocol/sdk/client/index.js'))"
+    status: passed
+    observed:
+      - '@modelcontextprotocol/sdk@1.16.0 listed as direct dependency'
+      - 'ws@8.18.2 listed as direct dependency satisfying ^8.18.0'
+      - 'Both require.resolve checks printed node_modules paths'
+  tests:
+    command: npm.cmd test
+    status: passed
+    test_files: 7
+    tests: 27
+    failed: 0
+notes:
+  - No live network calls are used by the new registry tests.
+  - Voice Live remains opt-in through azureVoiceProvider=voice-live; Azure Realtime remains the default.
+  - Existing untracked docs/webiq-mcp.md and docs/webiq-voicelive-implementation-plan.md were not modified as part of the build output.

@@ -21,6 +21,9 @@ let screenshotInterval = null;
 let audioContext = null;
 let audioProcessor = null;
 let micAudioProcessor = null;
+let micAudioContext = null;
+let micSourceNode = null;
+let audioSourceNode = null;
 let audioBuffer = [];
 const SAMPLE_RATE = 24000;
 const AUDIO_CHUNK_DURATION = 0.1; // seconds
@@ -332,23 +335,36 @@ function closeAzureWebSocket() {
 function triggerAzureWebSocketInit(profile = 'interview', language = 'en-US') {
     console.log('[renderer] triggerAzureWebSocketInit called', { profile, language });
 
-    const azureApiKey = localStorage.getItem('azureApiKey')?.trim();
     const azureEndpoint = localStorage.getItem('azureEndpoint')?.trim();
     const azureDeployment = localStorage.getItem('azureDeployment') || '';
     const azureRegion = localStorage.getItem('azureRegion')?.trim() || 'eastus2';
+    const azureVoiceProvider = localStorage.getItem('azureVoiceProvider') || 'azure-realtime';
+    const azureEnableWebIQ = localStorage.getItem('azureEnableWebIQ') === 'true';
 
-    console.log('[renderer] Azure credentials from localStorage:', {
-        hasApiKey: !!azureApiKey,
+    console.log('[renderer] Azure managed identity settings from localStorage:', {
         hasEndpoint: !!azureEndpoint,
         deployment: azureDeployment,
-        region: azureRegion
+        region: azureRegion,
+        voiceProvider: azureVoiceProvider,
+        webiqEnabled: azureEnableWebIQ
     });
 
-    if (azureApiKey && azureEndpoint && azureRegion) {
+    if (azureEndpoint && azureRegion) {
         console.log('[renderer] Invoking initialize-azure-realtime IPC call');
         // Fire and forget - this will start the service creation in main process
-        ipcRenderer.invoke('initialize-azure-realtime', azureApiKey, azureEndpoint, azureDeployment, azureRegion,
-                          localStorage.getItem('customPrompt') || '', profile, language)
+        ipcRenderer.invoke(
+            'initialize-azure-realtime',
+            azureEndpoint,
+            azureDeployment,
+            azureRegion,
+            localStorage.getItem('customPrompt') || '',
+            profile,
+            language,
+            {
+                voiceProvider: azureVoiceProvider,
+                enableWebIQ: azureEnableWebIQ
+            }
+        )
             .then(success => {
                 console.log('[renderer] initialize-azure-realtime IPC call result:', success);
                 // The status will be updated via other IPC channels during initialization
@@ -357,10 +373,53 @@ function triggerAzureWebSocketInit(profile = 'interview', language = 'en-US') {
                 console.error('[renderer] Error in initialize-azure-realtime IPC call:', error);
                 cheddar.setStatus('error');
             });
+        
+        // Initialize Azure Vision if enabled
+        initializeAzureVision(profile, language);
     } else {
-        console.error('[renderer] Azure credentials incomplete. Required: azureApiKey, azureEndpoint, azureRegion');
-        console.log('[renderer] Current values - apiKey:', azureApiKey, 'endpoint:', azureEndpoint, 'region:', azureRegion);
+        console.error('[renderer] Azure configuration incomplete. Required: azureEndpoint, azureRegion');
+        console.log('[renderer] Current values - endpoint:', azureEndpoint, 'region:', azureRegion);
         cheddar.setStatus('error');
+    }
+}
+
+// Initialize Azure Vision service for screenshot analysis
+async function initializeAzureVision(profile = 'interview', language = 'en-US') {
+    const azureVisionEnabled = localStorage.getItem('azureVisionEnabled') !== 'false';
+    
+    if (!azureVisionEnabled) {
+        console.log('[renderer] Azure Vision is disabled, skipping initialization');
+        return;
+    }
+    
+    const azureEndpoint = localStorage.getItem('azureEndpoint')?.trim();
+    const azureVisionDeployment = localStorage.getItem('azureVisionDeployment')?.trim() || 'gpt-4.1';
+    const customPrompt = localStorage.getItem('customPrompt') || '';
+    
+    console.log('[renderer] Initializing Azure Vision service:', {
+        hasEndpoint: !!azureEndpoint,
+        deployment: azureVisionDeployment
+    });
+    
+    if (!azureEndpoint || !azureVisionDeployment) {
+        console.warn('[renderer] Azure Vision configuration incomplete, skipping initialization');
+        return;
+    }
+    
+    try {
+        const result = await ipcRenderer.invoke('initialize-azure-vision', 
+            azureEndpoint, azureVisionDeployment, customPrompt, profile, language);
+        
+        if (result.success) {
+            console.log('[renderer] Azure Vision service initialized successfully');
+            // Store settings globally for routing decisions
+            window.llmService = 'azure';
+            window.azureVisionEnabled = true;
+        } else {
+            console.error('[renderer] Azure Vision initialization failed:', result.error);
+        }
+    } catch (error) {
+        console.error('[renderer] Error initializing Azure Vision:', error);
     }
 }
 
@@ -608,9 +667,12 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
 
 function setupLinuxMicProcessing(micStream) {
     // Setup microphone audio processing for Linux
-    const micAudioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-    const micSource = micAudioContext.createMediaStreamSource(micStream);
+    micAudioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+    micSourceNode = micAudioContext.createMediaStreamSource(micStream);
     const micProcessor = micAudioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+    window.micAudioContext = micAudioContext;
+    window.micSource = micSourceNode;
+    window.micAudioProcessor = micProcessor;
 
     let audioBuffer = [];
     const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
@@ -632,7 +694,7 @@ function setupLinuxMicProcessing(micStream) {
         }
     };
 
-    micSource.connect(micProcessor);
+    micSourceNode.connect(micProcessor);
     micProcessor.connect(micAudioContext.destination);
 
     // Store processor reference for cleanup
@@ -642,8 +704,11 @@ function setupLinuxMicProcessing(micStream) {
 function setupLinuxSystemAudioProcessing() {
     // Setup system audio processing for Linux (from getDisplayMedia)
     audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-    const source = audioContext.createMediaStreamSource(mediaStream);
+    audioSourceNode = audioContext.createMediaStreamSource(mediaStream);
     audioProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+    window.audioContext = audioContext;
+    window.audioSource = audioSourceNode;
+    window.audioProcessor = audioProcessor;
 
     let audioBuffer = [];
     const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
@@ -665,15 +730,18 @@ function setupLinuxSystemAudioProcessing() {
         }
     };
 
-    source.connect(audioProcessor);
+    audioSourceNode.connect(audioProcessor);
     audioProcessor.connect(audioContext.destination);
 }
 
 function setupWindowsLoopbackProcessing() {
     // Setup audio processing for Windows loopback audio only
     audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-    const source = audioContext.createMediaStreamSource(mediaStream);
+    audioSourceNode = audioContext.createMediaStreamSource(mediaStream);
     audioProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+    window.audioContext = audioContext;
+    window.audioSource = audioSourceNode;
+    window.audioProcessor = audioProcessor;
 
     let audioBuffer = [];
     const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
@@ -695,13 +763,17 @@ function setupWindowsLoopbackProcessing() {
         }
     };
 
-    source.connect(audioProcessor);
+    audioSourceNode.connect(audioProcessor);
     audioProcessor.connect(audioContext.destination);
 }
 
 async function captureScreenshot(imageQuality = 'medium', isManual = false) {
-    console.log(`Capturing ${isManual ? 'manual' : 'automated'} screenshot...`);
-    if (!mediaStream) return;
+    console.log(`[renderer] Capturing ${isManual ? 'manual' : 'automated'} screenshot...`);
+    
+    if (!mediaStream) {
+        console.error('[renderer] Cannot capture screenshot: mediaStream not initialized. Start a capture session first!');
+        return;
+    }
 
     // Check rate limiting for automated screenshots only
     if (!isManual && tokenTracker.shouldThrottle()) {
@@ -801,7 +873,22 @@ async function captureScreenshot(imageQuality = 'medium', isManual = false) {
 }
 
 async function captureManualScreenshot(imageQuality = null) {
-    console.log('Manual screenshot triggered');
+    console.log('[renderer] captureManualScreenshot called, imageQuality:', imageQuality);
+    console.log('[renderer] hiddenVideo exists:', !!hiddenVideo);
+    console.log('[renderer] mediaStream exists:', !!mediaStream);
+    
+    if (!mediaStream) {
+        console.error('[renderer] Cannot take screenshot: No active capture session!');
+        const message = 'Please start a capture session first (Ctrl+Enter from Main view) before taking screenshots.';
+        console.error('[renderer]', message);
+        
+        // Show error to user
+        if (soundBoardApp) {
+            soundBoardApp.setStatus('❌ ' + message);
+        }
+        return;
+    }
+    
     const quality = imageQuality || currentImageQuality;
     await captureScreenshot(quality, true); // Pass true for isManual
     await new Promise(resolve => setTimeout(resolve, 2000)); // TODO shitty hack
@@ -832,10 +919,29 @@ function stopCapture() {
         micAudioProcessor = null;
     }
 
-    if (audioContext) {
-        audioContext.close();
-        audioContext = null;
+    if (micSourceNode) {
+        micSourceNode.disconnect();
+        micSourceNode = null;
     }
+
+    if (audioSourceNode) {
+        audioSourceNode.disconnect();
+        audioSourceNode = null;
+    }
+
+    if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close().catch(err => {
+            console.error('Error closing system audio context:', err);
+        });
+    }
+    audioContext = null;
+
+    if (micAudioContext && micAudioContext.state !== 'closed') {
+        micAudioContext.close().catch(err => {
+            console.error('Error closing microphone audio context:', err);
+        });
+    }
+    micAudioContext = null;
 
     if (mediaStream) {
         mediaStream.getTracks().forEach(track => track.stop());
@@ -857,6 +963,13 @@ function stopCapture() {
     }
     offscreenCanvas = null;
     offscreenContext = null;
+
+    window.micSource = null;
+    window.micAudioContext = null;
+    window.micAudioProcessor = null;
+    window.audioSource = null;
+    window.audioContext = null;
+    window.audioProcessor = null;
 }
 
 // Send text message to Gemini
@@ -985,12 +1098,26 @@ ipcRenderer.on('clear-sensitive-data', () => {
 
 // Handle shortcuts based on current view
 function handleShortcut(shortcutKey) {
+    console.log('[renderer] handleShortcut called with key:', shortcutKey);
+    
+    if (typeof cheddar === 'undefined' || !cheddar.getCurrentView) {
+        console.error('[renderer] cheddar object not available!');
+        return;
+    }
+    
     const currentView = cheddar.getCurrentView();
+    console.log('[renderer] Current view:', currentView);
 
     if (shortcutKey === 'ctrl+enter' || shortcutKey === 'cmd+enter') {
         if (currentView === 'main') {
-            cheddar.element().handleStart();
+            console.log('[renderer] Starting session from main view');
+            if (cheddar.element && cheddar.element().handleStart) {
+                cheddar.element().handleStart();
+            } else {
+                console.error('[renderer] handleStart method not available');
+            }
         } else {
+            console.log('[renderer] Capturing screenshot from view:', currentView);
             captureManualScreenshot();
         }
     }
@@ -1023,30 +1150,17 @@ async function initializeAzureWebRTC(config) {
         }
         console.log('[renderer] STEP 2: ✓ Media devices API is available');
 
-        // STEP 3: Generate ephemeral API key
-        console.log('[renderer] STEP 3: Generating ephemeral API key from:', config.sessionsUrl);
-        const ephemeralResponse = await fetch(config.sessionsUrl, {
-            method: 'POST',
-            headers: {
-                'api-key': config.apiKey,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: config.deployment,
-                voice: 'alloy'
-            })
+        // STEP 3: Obtain ephemeral token via IPC — auth is handled securely in the main process
+        console.log('[renderer] STEP 3: Requesting ephemeral token via IPC from:', config.sessionsUrl);
+        const ephemeralData = await ipcRenderer.invoke('get-azure-ephemeral-token', {
+            sessionsUrl: config.sessionsUrl,
+            deployment: config.deployment,
+            voice: 'alloy'
         });
-
-        if (!ephemeralResponse.ok) {
-            const errorText = await ephemeralResponse.text();
-            throw new Error(`Ephemeral key request failed: HTTP ${ephemeralResponse.status} - ${errorText}`);
-        }
-
-        const ephemeralData = await ephemeralResponse.json();
-        if (!ephemeralData.id || !ephemeralData.client_secret?.value) {
+        if (!ephemeralData || !ephemeralData.id || !ephemeralData.client_secret?.value) {
             throw new Error('Invalid ephemeral key response - missing required fields');
         }
-        console.log('[renderer] STEP 3: ✓ Ephemeral key generated successfully (session:', ephemeralData.id, ')');
+        console.log('[renderer] STEP 3: ✓ Ephemeral token obtained successfully (session:', ephemeralData.id, ')');
 
         // STEP 4: Create WebRTC peer connection
         console.log('[renderer] STEP 4: Creating WebRTC peer connection...');

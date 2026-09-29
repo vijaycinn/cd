@@ -61,7 +61,12 @@
    - LLM Service: `Azure OpenAI`
    - Endpoint: `https://<your-resource>.services.ai.azure.com/`
    - Region: `eastus2`
-   - Voice Deployment: `gpt-5.4` or `gpt-5-nano` or `gpt-realtime`
-   - Vision Deployment: `gpt-4.1`
+   - Voice Deployment: `gpt-5-nano` or `gpt-4.1-mini` (recommended for low latency/cost)
+   - Vision Deployment: `gpt-4.1-mini` or `gpt-4.1`
 3. Click "Start Session" to begin. Authentication is handled automatically via Entra ID tokens.
+
+### 🎯 Recommended Deployments (Lowest Latency & Cost)
+- **Voice**: `gpt-5-nano` (fastest talking points under 1.2s, lowest cost) or `gpt-4.1-mini` (strong grounding with Microsoft Learn / WebIQ).
+- **Vision**: `gpt-4.1-mini` (rapid slide and diagram analysis).
+- **Modality**: Setting `"outputModalities": ["text"]` in settings skips TTS audio generation, saving 1–1.5s per response.
 

@@ -129,9 +129,36 @@ Settings are configured via the **Advanced** UI tab or in `%APPDATA%\sound-board
 2. Select **Azure OpenAI** as the LLM Service.
 3. Enter your **Azure Endpoint** (e.g., `https://<your-resource>.services.ai.azure.com/`).
 4. Set the **Region** (e.g., `eastus2`).
-5. Set **Voice Deployment** (`gpt-5.4`, `gpt-5-nano`, `gpt-realtime`, etc.).
-6. Set **Vision Deployment** (`gpt-4.1`).
+5. Set **Voice Deployment** (`gpt-5-nano`, `gpt-4.1-mini`, etc. — see recommendations below).
+6. Set **Vision Deployment** (`gpt-4.1-mini` or `gpt-4.1`).
 7. Ensure `az login` is authenticated to the resource tenant. Entra ID bearer tokens are acquired automatically without entering API keys.
+
+---
+
+## 🎯 Recommended Azure Foundry Models (Low Latency & Low Cost)
+
+For real-time meeting and interview assistance, model selection directly controls token-to-screen latency and compute costs.
+
+### Model Matrix for Voice Live & Realtime
+
+| Deployment / Model | Modality & Mode | Latency (TTFT) | Relative Cost | Best For / Recommendation |
+|---|---|---|---|---|
+| **`gpt-5-nano`** 🏆 | Cascaded (Azure STT → LLM → TTS) | **~0.8s – 1.2s** | **$ (Lowest)** | **Top Pick for Real-time Talking Points.** Fastest inference, lowest cost per token. *Note: Use default temperature (leave `temperature: null` in config).* |
+| **`gpt-4.1-mini`** 🥈 | Cascaded (Azure STT → LLM → TTS) | **~1.0s – 1.4s** | **$ (Low)** | **Best Balanced Choice.** Excellent MCP tool grounding (Microsoft Learn / WebIQ) and structured reasoning at high speed and low cost. |
+| **`gpt-realtime-mini`** | Native Speech-to-Speech | **~0.9s – 1.3s** | **$$ (Moderate)** | **Best for Native Audio.** Use when live voice audio feedback is required rather than text-only display. |
+| **`gpt-5.4`** | Cascaded (Azure STT → LLM → TTS) | **~1.8s – 2.5s** | **$$$ (Standard)** | **Deep Technical Reasoning.** Higher latency and token cost; best when answering complex architectural questions where depth overrides raw speed. |
+
+### Model Matrix for Screenshot Analysis (Vision)
+
+| Deployment / Model | Latency | Relative Cost | Recommendation |
+|---|---|---|---|
+| **`gpt-4.1-mini`** 🏆 | **~1.2s – 1.8s** | **$ (Lowest)** | **Recommended for Frequent Screenshots.** Low cost per image, fast OCR and summary of slides or terminal logs. |
+| **`gpt-4.1`** | **~2.0s – 3.0s** | **$$ (Moderate)** | **Complex Architectural Diagrams.** Superior accuracy for fine text, multi-tier system diagrams, and dense code snippets. |
+
+### 💡 Latency Optimization Tips
+1. **Use Text-Only Modality**: In `azure-realtime-settings.json`, set `"outputModalities": ["text"]` if you only read the on-screen display. Skipping text-to-speech (TTS) audio generation saves 800ms–1.5s per turn.
+2. **Cap Output Tokens**: Keep `"maxResponseOutputTokens": 200`. The model produces 2–5 punchy bullet points without wasting tokens on preambles.
+3. **Region Proximity**: Deploy your Foundry resource in the Azure region geographically closest to your client (e.g., `eastus2` or `westus2`) to minimize round-trip WebSocket ping time.
 
 ---
 

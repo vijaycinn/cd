@@ -1,102 +1,67 @@
 # Sound Board v0.4.0 - Portable Edition
 
-**Build Date:** March 22, 2026  
+**Build Date:** September 29, 2026  
 **Platform:** Windows x64  
-**Built from:** Latest updated codebase
+**Package Size:** ~314 MB uncompressed (~122 MB zipped)  
+**Built from:** Latest master branch (`cd-oai/cd`)
 
 ## Directory Contents
 
-### SoundBoard-Portable/ (~890 MB)
-**Portable Edition - No Installation Required**
+### SoundBoard-Portable/
+**Portable Standalone Edition — Zero Installation Required**
 
-- Just copy this folder anywhere and run `SoundBoard.exe`
-- No admin rights needed
-- All settings stored in `%APPDATA%\Sound Board\`
-- Perfect for USB drives or portable use
-- Self-contained with all dependencies
+- Unzip and double-click `SoundBoard.exe`
+- No administrator rights or registry alterations needed
+- Application settings saved under `%APPDATA%\sound-board-config\` and `%APPDATA%\Sound Board\`
+- Self-contained with Electron runtime and all required native dependencies
 
-**To Use:**
-```
+**Quick Start:**
+```text
 1. Open the SoundBoard-Portable folder
 2. Double-click SoundBoard.exe
-3. Go to the Advanced tab and configure your AI provider
-4. Start using!
+3. Navigate to the "Advanced" tab
+4. Configure Azure OpenAI / Voice Live (or Gemini)
+5. Start session (Ctrl+Enter)
 ```
 
 ---
 
-## Features
+## ✨ Features
 
-- Azure OpenAI Realtime voice integration
-- Azure OpenAI Vision screenshot analysis
-- Gemini AI support
-- Real-time audio transcription
-- Microsoft Learn MCP integration
-- Pause/resume audio
-- Screenshot capture (Ctrl+Enter, right-click, or camera button)
-- Stealth mode options
+- **Azure Voice Live & Realtime API**: Live streaming audio with server VAD (`azure_semantic_vad` and `server_vad`).
+- **Keyless Entra ID Auth**: Automatically acquires bearer tokens via Azure CLI (`az login`).
+- **In-Session Context Memory**: Continuous L1/L2/L3 memory keeping full context across meeting turns.
+- **MCP Grounding**: Live technical retrieval from Microsoft Learn MCP and WebIQ search.
+- **Azure Vision Screenshot Analysis**: Multi-modal screen capture analysis via GPT-4.1.
+- **Low-Latency Talking Points**: Concisely structured 2-5 bullet talking points under 1.5s.
+- **Google Gemini Fallback**: Option to toggle to Gemini 2.0 Flash Live.
+- **Stealth & Overlay**: Click-through transparent overlay, randomized process titles, emergency erase.
 
-## Keyboard Shortcuts
+## ⌨️ Keyboard Shortcuts
 
 | Shortcut | Action |
-|----------|--------|
-| Ctrl+Enter | Start session / Take screenshot |
-| Ctrl+\ | Toggle visibility |
-| Ctrl+M | Toggle click-through |
-| Ctrl+Up/Down | Move window |
-| Ctrl+[/] | Navigate responses |
-| Ctrl+Shift+E | Emergency erase |
-
-## Notes
-
-- Settings are stored in `%APPDATA%\Sound Board\` (not in the portable folder)
-- No registry changes are made
-- To fully remove: delete the folder and `%APPDATA%\Sound Board\`
-| Registry Changes | ❌ None | ✅ Yes |
-| Size | 37.4 MB | 104.55 MB |
+|---|---|
+| `Ctrl+Enter` | Start Session / Capture Screenshot |
+| `Ctrl+\` | Toggle Visibility |
+| `Ctrl+M` | Toggle Click-Through Mode |
+| `Ctrl+Arrow Keys` | Reposition Window |
+| `Ctrl+[` / `Ctrl+]` | Previous / Next Response |
+| `Ctrl+E` | Go Deeper (Expand current talking point) |
+| `Ctrl+Shift+E` | Emergency Erase |
 
 ---
 
-## ✨ Features (Both Versions)
+## 🔧 Connecting with Azure
 
-- ✅ Azure OpenAI Voice (Realtime API)
-- ✅ Azure OpenAI Vision (Screenshot Analysis)
-- ✅ Gemini AI Support
-- ✅ Real-time Transcription
-- ✅ Screenshot Capture (3 methods)
-- ✅ Microsoft Learn Integration
-- ✅ Pause/Resume Audio
-- ✅ Stealth Mode
+1. Ensure Azure CLI is installed and logged in:
+   ```bash
+   az login
+   ```
+2. In Sound Board's **Advanced** tab:
+   - LLM Service: `Azure OpenAI`
+   - Endpoint: `https://<your-resource>.services.ai.azure.com/`
+   - Region: `eastus2`
+   - Voice Deployment: `gpt-5.4` or `gpt-5-nano` or `gpt-realtime`
+   - Vision Deployment: `gpt-4.1`
+3. Click "Start Session" to begin. Authentication is handled automatically via Entra ID tokens.
 
----
-
-## 🚀 Quick Start
-
-1. **Choose your version** (Portable or Installer)
-2. **Launch the app**
-3. **Go to Advanced tab**
-4. **Configure Azure or Gemini credentials**
-5. **Start a session** (Ctrl+Enter)
-6. **Take screenshots** using:
-   - 📷 Camera button
-   - Right-click
-   - Ctrl+Enter
-
----
-
-## 📝 Version Information
-
-- **Version:** 0.4.0
-- **Build Date:** January 28, 2026
-- **Platform:** Windows x64
-- **License:** GPL-3.0
-
----
-
-## 💡 Recommendation
-
-- **For everyday use:** Install with `SoundBoard-Setup.exe`
-- **For testing/portable use:** Use `SoundBoard-Portable/`
-- **For USB/temporary:** Use `SoundBoard-Portable/`
-
-Both versions have identical features and functionality!

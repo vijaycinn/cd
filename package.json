@@ -25,26 +25,26 @@
     },
     "license": "GPL-3.0",
     "dependencies": {
-        "@azure/identity": "^4.13.1",
-        "@google/genai": "^1.2.0",
-        "@modelcontextprotocol/sdk": "^1.16.0",
+        "@azure/identity": "^4.14.1",
+        "@google/genai": "^1.52.0",
+        "@modelcontextprotocol/sdk": "^1.32.2",
         "electron-squirrel-startup": "^1.0.1",
-        "openai": "^5.9.2",
-        "ws": "^8.18.0"
+        "openai": "^7.60.0",
+        "ws": "^8.23.0"
     },
     "devDependencies": {
-        "@electron-forge/cli": "^7.8.1",
-        "@electron-forge/maker-deb": "^7.8.1",
-        "@electron-forge/maker-dmg": "^7.8.1",
-        "@electron-forge/maker-rpm": "^7.8.1",
-        "@electron-forge/maker-squirrel": "^7.8.1",
-        "@electron-forge/maker-zip": "^7.8.1",
-        "@electron-forge/plugin-auto-unpack-natives": "^7.8.1",
-        "@electron-forge/plugin-fuses": "^7.8.1",
+        "@electron-forge/cli": "^8.0.1",
+        "@electron-forge/maker-deb": "^8.0.1",
+        "@electron-forge/maker-dmg": "^8.0.1",
+        "@electron-forge/maker-rpm": "^8.0.1",
+        "@electron-forge/maker-squirrel": "^8.0.1",
+        "@electron-forge/maker-zip": "^8.0.1",
+        "@electron-forge/plugin-auto-unpack-natives": "^8.0.1",
+        "@electron-forge/plugin-fuses": "^8.0.1",
         "@electron/fuses": "^1.8.0",
-        "@reforged/maker-appimage": "^5.0.0",
-        "electron": "^30.0.5",
+        "@reforged/maker-appimage": "^6.0.0",
+        "electron": "^42.11.16",
         "jsdom": "^23.2.0",
-        "vitest": "^1.6.1"
+        "vitest": "^4.1.11"
     }
 }
